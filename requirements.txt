@@ -1,0 +1,5 @@
+torch==2.2.0
+pygame==2.5.2
+gymnasium
+stable-baselines3==2.2.1
+numpy
