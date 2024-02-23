@@ -1,13 +1,10 @@
 """
-This file trains a model using the GridWorld example environment
+This file trains a model using the Descend-V0 example environment
 """
 
 import gymnasium as gym
 from stable_baselines3 import PPO
 import numpy as np
-
-import gym_examples
-import gym_examples.envs
 
 import bluesky_gym
 import bluesky_gym.envs
