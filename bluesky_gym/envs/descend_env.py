@@ -31,10 +31,12 @@ class DescendEnv(gym.Env):
 
     # information regarding the possible rendering modes of the environment
     # for BlueSkyGym probably only implement 1 for now together with None, which is default
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 4}
+    metadata = {"render_modes": ["rgb_array","human"], "render_fps": 120}
 
     def __init__(self, render_mode=None):
-        self.window_size = 256 # Size of the rendered environment
+        self.window_width = 512
+        self.window_height = 256
+        self.window_size = (self.window_width, self.window_height) # Size of the rendered environment
 
         self.observation_space = spaces.Dict(
             {
@@ -57,22 +59,38 @@ class DescendEnv(gym.Env):
         bs.scr = ScreenDummy()
         bs.stack.stack('DT 1;FF')
 
+        """
+        If human-rendering is used, `self.window` will be a reference
+        to the window that we draw to. `self.clock` will be a clock that is used
+        to ensure that the environment is rendered at the correct framerate in
+        human-mode. They will remain `None` until human-mode is used for the
+        first time.
+        """
+        self.window = None
+        self.clock = None
+
+
     def _get_obs(self):
         """
         Observation consists of altitude, vertical speed, target altitude and distance to runway
         Very crude normalization in place for now
         """
 
-        altitude = np.array([(bs.traf.alt[0] - 1500)/3000])
-        vz = np.array([bs.traf.vs[0] / 5])
-        target_alt = np.array([((self.target_alt- 1500)/3000)])
-        runway_distance = np.array([((200 - bs.tools.geo.kwikdist(52,4,bs.traf.lat[0],bs.traf.lon[0])*1.852)-100)/200])
+        self.altitude = bs.traf.alt[0]
+        self.vz = bs.traf.vs[0]
+        self.runway_distance = (200 - bs.tools.geo.kwikdist(52,4,bs.traf.lat[0],bs.traf.lon[0])*1.852)
+
+        # very crude normalization
+        obs_altitude = np.array([(self.altitude - 1500)/3000])
+        obs_vz = np.array([self.vz / 5])
+        obs_target_alt = np.array([((self.target_alt- 1500)/3000)])
+        obs_runway_distance = np.array([(self.runway_distance-100)/200])
 
         observation = {
-                "altitude": altitude,
-                "vz": vz,
-                "target_altitude": target_alt,
-                "runway_distance": runway_distance,
+                "altitude": obs_altitude,
+                "vz": obs_vz,
+                "target_altitude": obs_target_alt,
+                "runway_distance": obs_runway_distance,
             }
         
         return observation
@@ -84,19 +102,15 @@ class DescendEnv(gym.Env):
         return {
             "distance": 10
         }
-    def _get_reward(self, observation):
-
-        altitude = (observation['altitude']*3000) + 1500
-        target_altitude = (observation['target_altitude']*3000) + 1500
-        runway_distance = (observation['runway_distance']*200) + 100
+    def _get_reward(self):
 
         # reward part of the function
-        if runway_distance > 0 and altitude > 0:
-            return abs(target_altitude- altitude)*-5/3000, 0
-        elif altitude <= 0:
+        if self.runway_distance > 0 and self.altitude > 0:
+            return abs(self.target_alt - self.altitude)*-5/3000, 0
+        elif self.altitude <= 0:
             return -100, 1
-        elif runway_distance <= 0:
-            return abs(100-altitude)*-50/3000, 1
+        elif self.runway_distance <= 0:
+            return abs(100-self.altitude)*-50/3000, 1
         
     def _get_action(self,action):
         # Transform action to the meters per second
@@ -139,9 +153,12 @@ class DescendEnv(gym.Env):
         action_frequency = 30
         for i in range(action_frequency):
             bs.sim.step()
+            if self.render_mode == "human":
+                self._render_frame()
+                observation = self._get_obs()
 
         observation = self._get_obs()
-        reward, terminated = self._get_reward(observation)
+        reward, terminated = self._get_reward()
 
         info = self._get_info()
 
@@ -156,7 +173,70 @@ class DescendEnv(gym.Env):
         pass
 
     def _render_frame(self):
-        pass
+        if self.window is None and self.render_mode == "human":
+            pygame.init()
+            pygame.display.init()
+            self.window = pygame.display.set_mode(self.window_size)
+
+        if self.clock is None and self.render_mode == "human":
+            self.clock = pygame.time.Clock()
+
+        zero_offset = 25
+        max_distance = 180 # width of screen in km
+
+        canvas = pygame.Surface(self.window_size)
+        canvas.fill((135,206,235))
+
+        # draw a ground surface
+        pygame.draw.rect(
+            canvas, 
+            (154,205,50),
+            pygame.Rect(
+                (0,self.window_height-50),
+                (self.window_width, 50)
+                ),
+        )
+        
+        # draw target altitude
+        max_alt = 5000
+        target_alt = int((-1*(self.target_alt-max_alt)/max_alt)*(self.window_height-50))
+
+        pygame.draw.line(
+            canvas,
+            (255,255,255),
+            (0,target_alt),
+            (self.window_width,target_alt)
+        )
+
+        # draw runway
+        runway_length = 30
+        runway_start = int(((self.runway_distance + zero_offset)/max_distance)*self.window_width)
+        runway_end = int(runway_start + (runway_length/max_distance)*self.window_width)
+
+        pygame.draw.line(
+            canvas,
+            (119,136,153),
+            (runway_start,self.window_height - 50),
+            (runway_end,self.window_height - 50),
+            width = 3
+        )
+
+        # draw aircraft
+        aircraft_alt = int((-1*(self.altitude-max_alt)/max_alt)*(self.window_height-50))
+        aircraft_start = int(((zero_offset)/max_distance)*self.window_width)
+        aircraft_end = int(aircraft_start + (4/max_distance)*self.window_width)
+
+        pygame.draw.line(
+            canvas,
+            (0,0,0),
+            (aircraft_start,aircraft_alt),
+            (aircraft_end,aircraft_alt),
+            width = 5
+        )
+
+        self.window.blit(canvas, canvas.get_rect())
+        pygame.display.update()
+        self.clock.tick(self.metadata["render_fps"])
         
     def close(self):
         pass
