@@ -7,6 +7,28 @@ from bluesky.simulation import ScreenIO
 import gymnasium as gym
 from gymnasium import spaces
 
+# Define constants
+ALT_MEAN = 1500
+ALT_STD = 3000
+VZ_MEAN = 0
+VZ_STD = 5
+RWY_DIS_MEAN = 100
+RWY_DIS_STD = 200
+
+ACTION_2_MS = 12.5
+
+ALT_DIF_REWARD_SCALE = -5/3000
+CRASH_PENALTY = -100
+RWY_ALT_DIF_REWARD_SCALE = -50/3000
+
+ALT_MIN = 2000
+ALT_MAX = 4000
+TARGET_ALT_DIF = 500
+
+AC_SPD = 150
+
+ACTION_FREQUENCY = 30
+
 class ScreenDummy(ScreenIO):
     """
     Dummy class for the screen. Inherits from ScreenIO to make sure all the
@@ -75,15 +97,20 @@ class DescentEnv(gym.Env):
         Very crude normalization in place for now
         """
 
+        DEFAULT_RWY_DIS = 200 
+        RWY_LAT = 52
+        RWY_LON = 4
+        NM2KM = 1.852
+
         self.altitude = bs.traf.alt[0]
         self.vz = bs.traf.vs[0]
-        self.runway_distance = (200 - bs.tools.geo.kwikdist(52,4,bs.traf.lat[0],bs.traf.lon[0])*1.852)
+        self.runway_distance = (DEFAULT_RWY_DIS - bs.tools.geo.kwikdist(RWY_LAT,RWY_LON,bs.traf.lat[0],bs.traf.lon[0])*NM2KM)
 
         # very crude normalization
-        obs_altitude = np.array([(self.altitude - 1500)/3000])
-        obs_vz = np.array([self.vz / 5])
-        obs_target_alt = np.array([((self.target_alt- 1500)/3000)])
-        obs_runway_distance = np.array([(self.runway_distance-100)/200])
+        obs_altitude = np.array([(self.altitude - ALT_MEAN)/ALT_STD])
+        obs_vz = np.array([(self.vz - VZ_MEAN) / VZ_STD])
+        obs_target_alt = np.array([((self.target_alt- ALT_MEAN)/ALT_STD)])
+        obs_runway_distance = np.array([(self.runway_distance - RWY_DIS_MEAN)/RWY_DIS_STD])
 
         observation = {
                 "altitude": obs_altitude,
@@ -106,15 +133,15 @@ class DescentEnv(gym.Env):
 
         # reward part of the function
         if self.runway_distance > 0 and self.altitude > 0:
-            return abs(self.target_alt - self.altitude)*-5/3000, 0
+            return abs(self.target_alt - self.altitude) * ALT_DIF_REWARD_SCALE, 0
         elif self.altitude <= 0:
-            return -100, 1
+            return CRASH_PENALTY, 1
         elif self.runway_distance <= 0:
-            return abs(100-self.altitude)*-50/3000, 1
+            return self.altitude * RWY_ALT_DIF_REWARD_SCALE, 1
         
     def _get_action(self,action):
         # Transform action to the meters per second
-        action = action * 12.5
+        action = action * ACTION_2_MS
 
         # Bluesky interpretes vertical velocity command through altitude commands 
         # with a vertical speed (magnitude). So check sign of action and give arbitrary 
@@ -122,20 +149,20 @@ class DescentEnv(gym.Env):
 
         # The actions are then executed through stack commands;
         if action >= 0:
-            bs.traf.selalt[0] = 1000000
+            bs.traf.selalt[0] = 1000000 # High target altitude to start climb
             bs.traf.selvs[0] = action
         elif action < 0:
-            bs.traf.selalt[0] = 0
+            bs.traf.selalt[0] = 0 # High target altitude to start descent
             bs.traf.selvs[0] = action
 
     def reset(self, seed=None, options=None):
         
         super().reset(seed=seed)
 
-        alt_init = np.random.randint(2000, 4000)
-        self.target_alt = alt_init + np.random.randint(-500,500)
+        alt_init = np.random.randint(ALT_MIN, ALT_MAX)
+        self.target_alt = alt_init + np.random.randint(-TARGET_ALT_DIF,TARGET_ALT_DIF)
 
-        bs.traf.cre('KL001',actype="A320",acalt=alt_init,acspd=150)
+        bs.traf.cre('KL001',actype="A320",acalt=alt_init,acspd=AC_SPD)
         bs.traf.swvnav[0] = False
 
         observation = self._get_obs()
@@ -150,7 +177,7 @@ class DescentEnv(gym.Env):
         
         self._get_action(action)
 
-        action_frequency = 30
+        action_frequency = ACTION_FREQUENCY
         for i in range(action_frequency):
             bs.sim.step()
             if self.render_mode == "human":
