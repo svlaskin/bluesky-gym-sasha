@@ -1,5 +1,5 @@
 """
-This file trains a model using the Descend-V0 example environment
+This file trains a model using the Descent-V0 example environment
 """
 
 import gymnasium as gym
@@ -16,7 +16,7 @@ EVAL_EPISODES = 10
 
 if __name__ == "__main__":
     # Create the environment
-    env = gym.make('DescendEnv-v0', render_mode=None)
+    env = gym.make('DescentEnv-v0', render_mode=None)
     obs, info = env.reset()
 
     # Create the model
@@ -25,15 +25,15 @@ if __name__ == "__main__":
     # Train the model
     if TRAIN:
         model.learn(total_timesteps=int(12e4))
-        model.save("models/DescendEnv-v0_ppo/model")
+        model.save("models/DescentEnv-v0_ppo/model")
         del model
     
     env.close()
     
     # Test the trained model
 
-    model = PPO.load("models/DescendEnv-v0_ppo/model", env=env)
-    env = gym.make('DescendEnv-v0', render_mode="human")
+    model = PPO.load("models/DescentEnv-v0_ppo/model", env=env)
+    env = gym.make('DescentEnv-v0', render_mode="human")
 
     for i in range(EVAL_EPISODES):
         done = truncated = False

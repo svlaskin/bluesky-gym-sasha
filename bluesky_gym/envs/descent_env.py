@@ -16,14 +16,13 @@ class ScreenDummy(ScreenIO):
     def echo(self, text='', flags=0):
         pass
 
-class DescendEnv(gym.Env):
+class DescentEnv(gym.Env):
     """ 
     Very simple environment that requires the agent to climb / descend to a target altitude.
     As the runway approaches the aircraft has to start descending, knowing when to start
-    the descend.
+    the descent.
 
     TODO:
-    - rendering
     - better commenting
     - proper normalization functionality
     - Monitor Wrapper class for monitoring progress, can be something to be used by all envs.
@@ -102,6 +101,7 @@ class DescendEnv(gym.Env):
         return {
             "distance": 10
         }
+    
     def _get_reward(self):
 
         # reward part of the function
@@ -162,6 +162,7 @@ class DescendEnv(gym.Env):
 
         info = self._get_info()
 
+        # bluesky reset?? bs.sim.reset()
         if terminated:
             for acid in bs.traf.id:
                 idx = bs.traf.id2idx(acid)

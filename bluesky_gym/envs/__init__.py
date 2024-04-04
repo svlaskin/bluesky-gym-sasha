@@ -1,1 +1,1 @@
-from bluesky_gym.envs.descend_env import *
+from bluesky_gym.envs.descent_env import *
