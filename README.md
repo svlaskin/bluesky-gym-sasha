@@ -16,5 +16,21 @@ Deviating from the target altitude, or being too high when the runway has approa
 
 Fairly untrained policy operating in DescentEnv-v0. |Trained policy operating in DescentEnv-v0.
 :--------------------------------------------------:|:--------------------------------------------------:
-![](docs/media/untrained_policy.gif)                |![](docs/media/trained_policy.gif)   
+![](docs/media/DescentEnv-v0/untrained_policy.gif)                |![](docs/media/DescentEnv-v0/trained_policy.gif)   
+
+### Horizontal Control - Real Time Waypoint Planning
+
+```python
+env = gymnasium.make("PlanWaypointEnv-v0")
+```
+
+In this environment, the agent controls the heading of the aircraft. The goal of the agent is to visit as many waypoints as possible, by efficiently planning a path through all unvisited waypoints. 
+
+For each unique waypoint visited, the agent is rewarded. After visiting a waypoint it becomes inactive, no longer giving rewards for visiting.
+
+Fairly untrained policy operating in PlanWaypointEnv-v0. | Slightly better trained policy operating in PlanWaypointEnv-v0.
+:--------------------------------------------------:|:--------------------------------------------------:
+![](docs/media/PlanWaypointEnv-v0/untrained_policy.gif)                |![](docs/media/PlanWaypointEnv-v0/trained_policy.gif)   
+
+
 
