@@ -8,10 +8,11 @@ import gymnasium as gym
 from gymnasium import spaces
 
 DISTANCE_MARGIN = 5 # km
-WAYPOINT_DISTANCE_MIN = 50 
+WAYPOINT_DISTANCE_MIN = 0
 WAYPOINT_DISTANCE_MAX = 75
 
-DRIFT_PENALTY = -0.05
+NUM_WAYPOINTS = 5
+
 REACH_REWARD = 1
 AC_SPD = 150
 
@@ -68,15 +69,20 @@ def get_point_at_distance(lat1, lon1, d, bearing, R=6371):
     )
     return np.degrees(lat2), np.degrees(lon2)
 
-class WaypointFollowEnv(gym.Env):
+class PlanWaypointEnv(gym.Env):
     """ 
     Dummy environment for horizontal control and rendering testing.
-    Goal of the agent is to contiuously follow the waypoints and cross as many as possible
-    to score points, similar to snake, but with euler integration for the turn dynamics.
+    Goal of the agent is to fly over the the waypoints and cross as many as possible
+    to score points, similar to traveling salesman problem, but without explicit planning
+    and with euler integration for the turn dynamics.
 
     For now only heading changes are possible.
 
     TODO:
+    - More comments
+    - Clean up rendering
+    - More elegant observation function
+    - Speed changes (?)
     
     """
 
@@ -91,9 +97,10 @@ class WaypointFollowEnv(gym.Env):
 
         self.observation_space = spaces.Dict(
             {
-                "waypoint_distance": spaces.Box(-np.inf, np.inf, dtype=np.float64),
-                "cos_difference": spaces.Box(-np.inf, np.inf, dtype=np.float64),
-                "sin_difference": spaces.Box(-np.inf, np.inf, dtype=np.float64)
+                "waypoint_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
+                "cos_difference": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
+                "sin_difference": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
+                "waypoint_reached": spaces.Box(0, 1, shape = (NUM_WAYPOINTS,), dtype=np.float64)
             }
         )
        
@@ -128,24 +135,34 @@ class WaypointFollowEnv(gym.Env):
         """
 
         NM2KM = 1.852
-
         ac_idx = bs.traf.id2idx('KL001')
-        self.ac_hdg = bs.traf.hdg[ac_idx]
-        wpt_qdr, wpt_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.wpt_lat, self.wpt_lon)
-    
-        self.wpt_dis = wpt_dis * NM2KM
-        self.wpt_qdr = wpt_qdr
 
-        self.drift = self.ac_hdg - wpt_qdr
-        self.drift = bound_angle_positive_negative_180(self.drift)
+        self.wpt_dis = []
+        self.wpt_qdr = []
+        self.drift = []
+        self.wpt_cos = []
+        self.wpt_sin = []
+        
+        for lat, lon in zip(self.wpt_lat, self.wpt_lon):
+            
+            self.ac_hdg = bs.traf.hdg[ac_idx]
+            wpt_qdr, wpt_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], lat, lon)
+        
+            self.wpt_dis.append(wpt_dis * NM2KM)
+            self.wpt_qdr.append(wpt_qdr)
 
-        wpt_cos = np.array([np.cos(np.deg2rad(self.drift))])
-        wpt_sin = np.array([np.sin(np.deg2rad(self.drift))])
+            drift = self.ac_hdg - wpt_qdr
+            drift = bound_angle_positive_negative_180(drift)
+
+            self.wpt_cos.append(np.cos(np.deg2rad(drift)))
+            self.wpt_sin.append(np.sin(np.deg2rad(drift)))
+            self.drift.append(drift)
 
         observation = {
-                "waypoint_distance": np.array([self.wpt_dis/WAYPOINT_DISTANCE_MAX]),
-                "cos_difference": wpt_cos,
-                "sin_difference": wpt_sin,
+                "waypoint_distance": np.array(self.wpt_dis)/WAYPOINT_DISTANCE_MAX,
+                "cos_difference": np.array(self.wpt_cos),
+                "sin_difference": np.array(self.wpt_sin),
+                "waypoint_reached": np.array(self.wpt_reach)
             }
         
         return observation
@@ -164,7 +181,11 @@ class WaypointFollowEnv(gym.Env):
         # new waypoints spawning continously
 
         reach_reward = self._check_waypoint()
-        return (abs(self.drift) * DRIFT_PENALTY) + reach_reward, 0
+
+        if 0 in self.wpt_reach:
+            return reach_reward, 0
+        else:
+            return reach_reward, 1
 
         
     def _get_action(self,action):
@@ -217,21 +238,32 @@ class WaypointFollowEnv(gym.Env):
         pass
 
     def _generate_waypoint(self, acid = 'KL001'):
-        wpt_dis_init = np.random.randint(WAYPOINT_DISTANCE_MIN, WAYPOINT_DISTANCE_MAX)
-        wpt_hdg_init = np.random.randint(0, 359)
+        self.wpt_lat = []
+        self.wpt_lon = []
+        self.wpt_reach = []
+        for i in range(NUM_WAYPOINTS):
+            wpt_dis_init = np.random.randint(WAYPOINT_DISTANCE_MIN, WAYPOINT_DISTANCE_MAX)
+            wpt_hdg_init = np.random.randint(0, 359)
 
-        ac_idx = bs.traf.id2idx(acid)
+            ac_idx = bs.traf.id2idx(acid)
 
-        wpt_lat, wpt_lon = get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], wpt_dis_init, wpt_hdg_init)    
-        self.wpt_lat = wpt_lat
-        self.wpt_lon = wpt_lon
+            wpt_lat, wpt_lon = get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], wpt_dis_init, wpt_hdg_init)    
+            self.wpt_lat.append(wpt_lat)
+            self.wpt_lon.append(wpt_lon)
+            self.wpt_reach.append(0)
 
     def _check_waypoint(self):
-        if self.wpt_dis < DISTANCE_MARGIN:
-            self._generate_waypoint()
-            return REACH_REWARD
-        else:
-            return 0
+        reward = 0
+        index = 0
+        for distance in self.wpt_dis:
+            if distance < DISTANCE_MARGIN and self.wpt_reach[index] != 1:
+                self.wpt_reach[index] = 1
+                reward += REACH_REWARD
+                index += 1
+            else:
+                reward += 0
+                index += 1
+        return reward
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
@@ -272,25 +304,31 @@ class WaypointFollowEnv(gym.Env):
         )
 
         # draw target waypoint
+        for qdr, dis, reach in zip(self.wpt_qdr, self.wpt_dis, self.wpt_reach):
 
-        circle_x = ((np.cos(np.deg2rad(self.wpt_qdr)) * self.wpt_dis)/max_distance)*self.window_width
-        circle_y = ((np.sin(np.deg2rad(self.wpt_qdr)) * self.wpt_dis)/max_distance)*self.window_width
+            circle_x = ((np.cos(np.deg2rad(qdr)) * dis)/max_distance)*self.window_width
+            circle_y = ((np.sin(np.deg2rad(qdr)) * dis)/max_distance)*self.window_width
 
-        pygame.draw.circle(
-            canvas, 
-            (255,255,255),
-            ((self.window_width/2)+circle_x,(self.window_height/2)-circle_y),
-            radius = 4,
-            width = 0
-        )
-        
-        pygame.draw.circle(
-            canvas, 
-            (255,255,255),
-            ((self.window_width/2)+circle_x,(self.window_height/2)-circle_y),
-            radius = (DISTANCE_MARGIN/max_distance)*self.window_width,
-            width = 2
-        )
+            if reach:
+                color = (155,155,155)
+            else:
+                color = (255,255,255)
+
+            pygame.draw.circle(
+                canvas, 
+                color,
+                ((self.window_width/2)+circle_x,(self.window_height/2)-circle_y),
+                radius = 4,
+                width = 0
+            )
+            
+            pygame.draw.circle(
+                canvas, 
+                color,
+                ((self.window_width/2)+circle_x,(self.window_height/2)-circle_y),
+                radius = (DISTANCE_MARGIN/max_distance)*self.window_width,
+                width = 2
+            )
 
         self.window.blit(canvas, canvas.get_rect())
         pygame.display.update()
