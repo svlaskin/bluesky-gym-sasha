@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(10e5))
+        model.learn(total_timesteps=int(20e5))
         model.save("models/PlanWaypointEnv-v0_ppo/model")
         del model
     
