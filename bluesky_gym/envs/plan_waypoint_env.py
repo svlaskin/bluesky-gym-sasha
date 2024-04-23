@@ -2,7 +2,8 @@ import numpy as np
 import pygame
 
 import bluesky as bs
-from bluesky.simulation import ScreenIO
+from envs.common.screen_dummy import ScreenDummy
+import envs.common.functions as fn
 
 import gymnasium as gym
 from gymnasium import spaces
@@ -19,55 +20,6 @@ AC_SPD = 150
 D_HEADING = 45
 
 ACTION_FREQUENCY = 10
-
-class ScreenDummy(ScreenIO):
-    """
-    Dummy class for the screen. Inherits from ScreenIO to make sure all the
-    necessary methods are there. This class is there to reimplement the echo
-    method so that console messages are ignored.
-    """
-    def echo(self, text='', flags=0):
-        pass
-
-def bound_angle_positive_negative_180(angle_deg: float) -> float:
-    """ maps any angle in degrees to the [-180,180] interval 
-    Parameters
-    __________
-    angle_deg: float
-        angle that needs to be mapped (in degrees)
-    
-    Returns
-    __________
-    angle_deg: float
-        input angle mapped to the interval [-180,180] (in degrees)
-    """
-
-    if angle_deg > 180:
-        return -(360 - angle_deg)
-    elif angle_deg < -180:
-        return (360 + angle_deg)
-    else:
-        return angle_deg
-
-def get_point_at_distance(lat1, lon1, d, bearing, R=6371):
-    """
-    lat: initial latitude, in degrees
-    lon: initial longitude, in degrees
-    d: target distance from initial
-    bearing: (true) heading in degrees
-    R: optional radius of sphere, defaults to mean radius of earth
-
-    Returns new lat/lon coordinate {d}km from initial, in degrees
-    """
-    lat1 = np.radians(lat1)
-    lon1 = np.radians(lon1)
-    a = np.radians(bearing)
-    lat2 = np.arcsin(np.sin(lat1) * np.cos(d/R) + np.cos(lat1) * np.sin(d/R) * np.cos(a))
-    lon2 = lon1 + np.arctan2(
-        np.sin(a) * np.sin(d/R) * np.cos(lat1),
-        np.cos(d/R) - np.sin(lat1) * np.sin(lat2)
-    )
-    return np.degrees(lat2), np.degrees(lon2)
 
 class PlanWaypointEnv(gym.Env):
     """ 
@@ -152,7 +104,7 @@ class PlanWaypointEnv(gym.Env):
             self.wpt_qdr.append(wpt_qdr)
 
             drift = self.ac_hdg - wpt_qdr
-            drift = bound_angle_positive_negative_180(drift)
+            drift = fn.bound_angle_positive_negative_180(drift)
 
             self.wpt_cos.append(np.cos(np.deg2rad(drift)))
             self.wpt_sin.append(np.sin(np.deg2rad(drift)))
@@ -247,7 +199,7 @@ class PlanWaypointEnv(gym.Env):
 
             ac_idx = bs.traf.id2idx(acid)
 
-            wpt_lat, wpt_lon = get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], wpt_dis_init, wpt_hdg_init)    
+            wpt_lat, wpt_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], wpt_dis_init, wpt_hdg_init)    
             self.wpt_lat.append(wpt_lat)
             self.wpt_lon.append(wpt_lon)
             self.wpt_reach.append(0)
