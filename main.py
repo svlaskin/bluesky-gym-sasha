@@ -13,7 +13,7 @@ bluesky_gym.register_envs()
 
 TRAIN = True
 EVAL_EPISODES = 10
-EPOCHS = 20
+EPOCHS = 200
 
 if __name__ == "__main__":
     # Create the environment
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     
     # Test the trained model
 
-    # model = PPO.load("models/PlanWaypointEnv-v0_ppo/model", env=env)
+    model = PPO.load("models/HorizontalCREnv-v0_ppo/model", env=env)
     env = gym.make('HorizontalCREnv-v0', render_mode="human")
 
     for i in range(EVAL_EPISODES):
@@ -45,6 +45,7 @@ if __name__ == "__main__":
             # Predict
             # action = np.array([0])
             action, _states = model.predict(obs, deterministic=True)
+            action = np.array([0.2])
             # Get reward
             obs, reward, done, truncated, info = env.step(action[()])
             tot_rew += reward

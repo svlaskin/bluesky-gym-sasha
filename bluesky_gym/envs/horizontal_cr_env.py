@@ -241,7 +241,7 @@ class HorizontalCREnv(gym.Env):
         return reward
 
     def _check_drift(self):
-        return abs(self.drift[0]) * DRIFT_PENALTY
+        return abs(np.deg2rad(self.drift[0])) * DRIFT_PENALTY
 
     def _check_intrusion(self):
         ac_idx = bs.traf.id2idx('KL001')
