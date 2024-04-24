@@ -1,5 +1,5 @@
 """
-This file trains a model using the PlanWaypointEnv-V0 example environment
+This file trains a model using the HorizontalCREnv-V0 environment
 """
 
 import gymnasium as gym
@@ -11,12 +11,13 @@ import bluesky_gym.envs
 
 bluesky_gym.register_envs()
 
-TRAIN = False
+TRAIN = True
 EVAL_EPISODES = 10
+EPOCHS = 20
 
 if __name__ == "__main__":
     # Create the environment
-    env = gym.make('PlanWaypointEnv-v0', render_mode=None)
+    env = gym.make('HorizontalCREnv-v0', render_mode=None)
     obs, info = env.reset()
 
     # Create the model
@@ -24,16 +25,17 @@ if __name__ == "__main__":
 
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(20e5))
-        model.save("models/PlanWaypointEnv-v0_ppo/model")
+        for i in range(EPOCHS):
+            model.learn(total_timesteps=int(20e5/EPOCHS))
+            model.save("models/HorizontalCREnv-v0_ppo/model")
         del model
     
     env.close()
     
     # Test the trained model
 
-    model = PPO.load("models/PlanWaypointEnv-v0_ppo/model", env=env)
-    env = gym.make('PlanWaypointEnv-v0', render_mode="human")
+    # model = PPO.load("models/PlanWaypointEnv-v0_ppo/model", env=env)
+    env = gym.make('HorizontalCREnv-v0', render_mode="human")
 
     for i in range(EVAL_EPISODES):
         done = truncated = False
@@ -41,6 +43,7 @@ if __name__ == "__main__":
         tot_rew = 0
         while not (done or truncated):
             # Predict
+            # action = np.array([0])
             action, _states = model.predict(obs, deterministic=True)
             # Get reward
             obs, reward, done, truncated, info = env.step(action[()])

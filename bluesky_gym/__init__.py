@@ -13,3 +13,9 @@ def register_envs():
         entry_point="bluesky_gym.envs.plan_waypoint_env:PlanWaypointEnv",
         max_episode_steps=300,
     )
+
+    register(
+        id="HorizontalCREnv-v0",
+        entry_point="bluesky_gym.envs.horizontal_cr_env:HorizontalCREnv",
+        max_episode_steps=300,
+    )
