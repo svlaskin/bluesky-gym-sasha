@@ -2,8 +2,8 @@ import numpy as np
 import pygame
 
 import bluesky as bs
-from envs.common.screen_dummy import ScreenDummy
-import envs.common.functions as fn
+from bluesky_gym.envs.common.screen_dummy import ScreenDummy
+import bluesky_gym.envs.common.functions as fn
 
 import gymnasium as gym
 from gymnasium import spaces
@@ -138,7 +138,6 @@ class PlanWaypointEnv(gym.Env):
             return reach_reward, 0
         else:
             return reach_reward, 1
-
         
     def _get_action(self,action):
 
