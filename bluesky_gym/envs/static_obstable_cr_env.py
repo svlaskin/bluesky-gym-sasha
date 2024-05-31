@@ -17,11 +17,11 @@ RESTRICTED_AREA_INTRUSION_PENALTY = -1
 
 NUM_INTRUDERS = 5
 NUM_WAYPOINTS = 1
-NUM_RESTRICTED_AREAS = 1 
+NUM_OBSTACLES = 1
 INTRUSION_DISTANCE = 5 # NM
 
-WAYPOINT_DISTANCE_MIN = 100 #
-WAYPOINT_DISTANCE_MAX = 150
+WAYPOINT_DISTANCE_MIN = 100 # KM
+WAYPOINT_DISTANCE_MAX = 150 # KM
 
 D_HEADING = 45 #degrees
 
@@ -31,9 +31,11 @@ NM2KM = 1.852
 
 ACTION_FREQUENCY = 10
 
-class HorizontalCREnv(gym.Env):
+# n_obstacle_vertices =  from function generating obstacles. 
+
+class StaticObstacleCREnv(gym.Env):
     """ 
-    Horizontal Conflict Resolution Environment
+    Static Obstacle Conflict Resolution Environment
 
     TODO:
     - look at adding waypoints instead of staying straight
@@ -58,7 +60,10 @@ class HorizontalCREnv(gym.Env):
                 "waypoint_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
                 "cos_drift": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
                 "sin_drift": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
-                "restricted_area_intrusion": spaces.Box(0, 1, shape = (NUM_RESTRICTED_AREAS,), dtype=np.float64)
+                "restricted_area_intrusion": spaces.Box(0, 1, shape = (1,), dtype=np.float64),
+                "restricted_area__distance": spaces.Box(-np.inf, np.inf, shape = (n_obstacle_vertices,), dtype=np.float64),
+                "cos_difference_restricted_area_pos": spaces.Box(-np.inf, np.inf, shape = (n_obstacle_vertices,), dtype=np.float64),
+                "sin_difference_restricted_area_pos": spaces.Box(-np.inf, np.inf, shape = (n_obstacle_vertices,), dtype=np.float64)
             }
         )
        
@@ -68,7 +73,6 @@ class HorizontalCREnv(gym.Env):
                 "speed": spaces.Box(-1, 1, shape=(1,), dtype=np.float64)
             }
         )
-        
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -90,7 +94,7 @@ class HorizontalCREnv(gym.Env):
 
         bs.traf.cre('KL001',actype="A320",acspd=AC_SPD)
 
-        self._generate_conflicts()
+        self._generate_other_aircraft()
         self._generate_waypoint()
         observation = self._get_obs()
         info = self._get_info()
@@ -124,7 +128,11 @@ class HorizontalCREnv(gym.Env):
 
         return observation, reward, terminated, False, info
 
-    def _generate_conflicts(self, acid = 'KL001'):
+    def _generate_other_aircraft(self, acid = 'KL001'):
+        # for n_other_ac CRE
+
+        # check IF AC INSIDE 
+
         target_idx = bs.traf.id2idx(acid)
         for i in range(NUM_INTRUDERS):
             dpsi = np.random.randint(45,315)
@@ -138,7 +146,7 @@ class HorizontalCREnv(gym.Env):
         self.wpt_reach = []
         for i in range(NUM_WAYPOINTS):
             wpt_dis_init = np.random.randint(WAYPOINT_DISTANCE_MIN, WAYPOINT_DISTANCE_MAX)
-            wpt_hdg_init = 0
+            wpt_hdg_init = 0 # always generating waypoints straight ahead?
 
             ac_idx = bs.traf.id2idx(acid)
 
@@ -208,6 +216,7 @@ class HorizontalCREnv(gym.Env):
                 "waypoint_distance": np.array(self.waypoint_distance)/WAYPOINT_DISTANCE_MAX,
                 "cos_drift": np.array(self.cos_drift),
                 "sin_drift": np.array(self.sin_drift)
+                # add observations on obstacles
             }
         
         return observation

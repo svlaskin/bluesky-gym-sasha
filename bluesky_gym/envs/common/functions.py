@@ -24,8 +24,8 @@ def get_point_at_distance(lat1, lon1, d, bearing, R=6371):
     """
     lat: initial latitude, in degrees
     lon: initial longitude, in degrees
-    d: target distance from initial
-    bearing: (true) heading in degrees
+    d: target distance from initial, in km
+    bearing: (true) heading, in degrees
     R: optional radius of sphere, defaults to mean radius of earth
 
     Returns new lat/lon coordinate {d}km from initial, in degrees
