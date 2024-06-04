@@ -8,9 +8,9 @@ import envs.common.functions as fn
 import gymnasium as gym
 from gymnasium import spaces
 
-AC_DENSITY_RANGE = (0.00000001, 0.0000001) # In AC/NM^2
-POLY_AREA_RANGE = (150, 250) # In NM^2
-CENTER = (51.990426702297746, 4.376124857109851) # TU Delft AE Faculty coordinates
+AC_DENSITY_RANGE = np.array(0.00000001, 0.0000001) # In AC/NM^2
+POLY_AREA_RANGE = np.array(150, 250) # In NM^2
+CENTER = np.array([51.990426702297746, 4.376124857109851]) # TU Delft AE Faculty coordinates
 
 AC_SPD = 150
 AC_TYPE = "A320"
@@ -18,13 +18,18 @@ AC_TYPE = "A320"
 DISTANCE_MARGIN = 5 # km
 INTRUSION_DISTANCE = 25 # NM
 
-ACTOR = "KL001"
+
 NM2KM = 1.852
+MpS2Kt = 1.94384
 
 # Model parameters
+ACTOR = "KL001"
+ACTION_FREQUENCY = 10
 NUM_AC_STATE = 2
 DRIFT_PENALTY = 0
 INTRUSION_PENALTY = 0
+D_HEADING = 0
+D_VELOCITY = 0
 
 class PolygonCREnv(gym.Env):
     """ 
@@ -37,7 +42,7 @@ class PolygonCREnv(gym.Env):
         self.window_height = 512
         self.window_size = (self.window_width, self.window_height) # Size of the rendered environment
         self.poly_name = 'airspace'
-        self.observation_space = spaces.Dict(
+        self.BasicAbs = spaces.Dict(
             {
                 "cos(drift)": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
                 "sin(drift)": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
@@ -51,8 +56,22 @@ class PolygonCREnv(gym.Env):
                 "vy_int": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64)
             }
         )
-    
-        self.action_space = spaces.Box(-1, 1, shape=(1,), dtype=np.float64)
+        self.Local = spaces.Dict(
+            {
+                "cos(drift)": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
+                "sin(drift)": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
+                "airspeed": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
+                "x_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
+                "y_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
+                "vx_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
+                "vy_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
+                "cos(track)": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
+                "sin(track)": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
+                "distances": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64)
+            }
+        )
+        self.observation_space = self.Local   
+        self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=np.float64)
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -74,8 +93,14 @@ class PolygonCREnv(gym.Env):
         
         self.num_ac = max(np.ceil(np.random.uniform(*AC_DENSITY_RANGE) * self.poly_area), 2) # Get total number of AC in the airspace including agent (min = 2)
         self._generate_ac() # Create aircraft in the airspace
-        
-        observation = self._get_obs()
+        self._generate_waypoints() # Create waypoints for aircraft
+
+        # Observation vector dependent on type chosen
+        if self.observation_space == self.BasicAbs:
+            observation = self._get_obs_BasicAbs()
+        elif self.observation_space == self.Local:
+            observation = self._get_obs_Local()
+
         info = self._get_info()
         
         if self.render_mode == "human":
@@ -83,6 +108,31 @@ class PolygonCREnv(gym.Env):
 
         return observation, info
     
+    def step(self, action):
+        self._get_action(action)
+        action_frequency = ACTION_FREQUENCY
+        for i in range(action_frequency):
+            bs.sim.step()
+            if self.render_mode == "human":
+                # Observation vector dependent on type chosen
+                if self.observation_space == self.BasicAbs:
+                    observation = self._get_obs_BasicAbs()
+                elif self.observation_space == self.Local:
+                    observation = self._get_obs_Local()
+                
+                self._render_frame()
+        
+        # Observation vector dependent on type chosen
+        if self.observation_space == self.BasicAbs:
+            observation = self._get_obs_BasicAbs()
+        elif self.observation_space == self.Local:
+            observation = self._get_obs_Local()
+        
+        reward = self._get_reward()
+
+        info = self._get_info()
+
+        return observation, reward, False, False, info
     def _generate_polygon(self):
         
         R = np.sqrt(POLY_AREA_RANGE[1] / np.pi)
@@ -96,7 +146,7 @@ class PolygonCREnv(gym.Env):
             p = fn.sort_points_clockwise(p)
             p_area = fn.polygon_area(p)
         
-        self.poly_points = p # Polygon vertices are saved in terms of NM
+        self.poly_points = np.array(p) # Polygon vertices are saved in terms of NM
         
         p = [fn.nm_to_latlong(CENTER, point) for point in p] # Convert to lat/long coordinateS
         
@@ -109,8 +159,8 @@ class PolygonCREnv(gym.Env):
         perim_tot = 0
         
         for i in range(len(self.poly_points)):
-            p1 = self.poly_points[i]
-            p2 = self.poly_points[(i+1) % len(self.poly_points)] # Ensure wrap-around
+            p1 = np.array(self.poly_points[i])
+            p2 = np.array(self.poly_points[(i+1) % len(self.poly_points)]) # Ensure wrap-around
             len_edge = fn.euclidean_distance(p1, p2)
             edges.append((p1, p2, len_edge))
             perim_tot += len_edge
@@ -128,21 +178,21 @@ class PolygonCREnv(gym.Env):
             
             edge = edges[0]
             frac = (d - current_d) / edge[2]
-            p = (edge[0][0] + frac * (edge[1][0] - edge[0][0]), edge[0][1] + frac * (edge[1][1] - edge[0][1]))
+            p = edge[0] + frac * (edge[1] - edge[0])
             self.wpts.append(p)
         
     def _generate_ac(self) -> None:
         
         # Determine bounding box of airspace
-        min_x = min(self.poly_points, key=lambda x: x[0])[0]
-        min_y = min(self.poly_points, key=lambda x: x[1])[1]
-        max_x = max(self.poly_points, key=lambda x: x[0])[0]
-        max_y = max(self.poly_points, key=lambda x: x[1])[1]
+        min_x = min(self.poly_points[:, 0])
+        min_y = min(self.poly_points[:, 1])
+        max_x = max(self.poly_points[:, 0])
+        max_y = max(self.poly_points[:, 1])
         
         init_p_latlong = []
         
         while len(init_p_latlong) < self.num_ac:
-            p = (np.random.uniform(min_x, max_x), np.random.uniform(min_y, max_y))
+            p = np.array([np.random.uniform(min_x, max_x), np.random.uniform(min_y, max_y)])
             p = fn.nm_to_latlong(CENTER, p)
             
             if bs.tools.areafilter.checkInside(self.poly_name, p[0], p[1], alt=0):
@@ -168,22 +218,30 @@ class PolygonCREnv(gym.Env):
         return {
             "distance": 10
         }
+    
+    def _get_reward(self):
         
-    def _get_obs(self):
+        drift_reward = self._check_drift()
+        intrusion_reward = self._check_intrusion()
+
+        total_reward = drift_reward + intrusion_reward
+        return total_reward
+        
+    def _get_obs_BasicAbs(self):
         
         ac_idx = bs.traf.id2idx(ACTOR)
         
         # Observation vector shape and components
-        self.cos_drift = []
-        self.sin_drift = []
-        self.x = []
-        self.y = []
-        self.vx = []
-        self.vy = []
-        self.x_int = []
-        self.y_int = []
-        self.vx_int = []
-        self.vy_int = []
+        self.cos_drift = np.array([])
+        self.sin_drift = np.array([])
+        self.x = np.array([])
+        self.y = np.array([])
+        self.vx = np.array([])
+        self.vy = np.array([])
+        self.x_int = np.array([])
+        self.y_int = np.array([])
+        self.vx_int = np.array([])
+        self.vy_int = np.array([])
         
         # Drift of agent aircraft for reward calculation
         drift = 0
@@ -195,51 +253,139 @@ class PolygonCREnv(gym.Env):
         drift = ac_hdg - wpt_qdr
         drift = fn.bound_angle_positive_negative_180(drift)
         self.drift = drift
-        self.cos_drift.append(np.cos(np.deg2rad(drift)))
-        self.sin_drift.append(np.sin(np.deg2rad(drift)))
+        self.cos_drift = np.append(self.cos_drift, np.cos(np.deg2rad(drift)))
+        self.sin_drift = np.append(self.sin_drift, np.sin(np.deg2rad(drift)))
         
         # Get agent aircraft position, m
-        x, y = fn.latlong_to_nm(CENTER, bs.traf.lat[ac_idx], bs.traf.lon[ac_idx]) * NM2KM * 1000 # Two-step conversion lat/long -> NM -> m
-        self.x.append(x)
-        self.y.append(y)
+        ac_loc = fn.latlong_to_nm(CENTER, np.array([bs.traf.lat[ac_idx], bs.traf.lon[ac_idx]])) * NM2KM * 1000 # Two-step conversion lat/long -> NM -> m
+        self.x = np.append(self.x, ac_loc[0])
+        self.y = np.append(self.y, ac_loc[1])
         
+
         # Get agent aircraft velocity, m/s
-        # NOTE: TAS or CAS?
         vx = np.cos(np.deg2rad(ac_hdg)) * bs.traf.tas[ac_idx]
         vy = np.sin(np.deg2rad(ac_hdg)) * bs.traf.tas[ac_idx]
-        self.vx.append(vx)
-        self.vy.append(vy)
+        self.vx = np.append(self.vx, vx)
+        self.vy = np.append(self.vy, vy)
 
-        for i in range(self.num_ac-1):
-            int_idx = i+1
-            int_hdg = bs.traf.hdg[int_idx]
+        distances = [fn.euclidean_distance(ac_loc, fn.latlong_to_nm(CENTER, np.array([bs.traf.lat[i], bs.traf.lon[i]])) * NM2KM * 1000) for i in range(1, self.num_ac)]
+        ac_idx_by_dist = np.argsort(distances)
+
+        for i in range(1, self.num_ac):
+            ac_idx = ac_idx_by_dist[i]+1
+            int_hdg = bs.traf.hdg[ac_idx]
             
             # Intruder AC position, m
-            x_int, y_int = fn.latlong_to_nm(CENTER, bs.traf.lat[int_idx], bs.traf.lon[int_idx]) * NM2KM * 1000
-            self.x_int.append(x_int)
-            self.y_int.append(y_int)
+            x_int, y_int = fn.latlong_to_nm(CENTER, np.array([bs.traf.lat[ac_idx], bs.traf.lon[ac_idx]])) * NM2KM * 1000
+            self.x_int = np.append(self.x_int, x_int)
+            self.y_int = np.append(self.y_int, y_int)
             
             # Intruder AC velocity, m/s
-            vx_int = np.cos(np.deg2rad(int_hdg)) * bs.traf.tas[int_idx]
-            vy_int = np.sin(np.deg2rad(int_hdg)) * bs.traf.tas[int_idx]
-            self.vx_int.append(vx_int)
-            self.vy_int.append(vy_int)
+            vx_int = np.cos(np.deg2rad(int_hdg)) * bs.traf.tas[ac_idx]
+            vy_int = np.sin(np.deg2rad(int_hdg)) * bs.traf.tas[ac_idx]
+            self.vx_int = np.append(self.vx_int, vx_int)
+            self.vy_int = np.append(self.vy_int, vy_int)
 
         observation = {
-            "cos(drift)": np.array(self.cos_drift),
-            "sin(drift)": np.array(self.sin_drift),
-            "x": np.array(self.x),
-            "y": np.array(self.y),
-            "vx": np.array(self.vx),
-            "vy": np.array(self.vy),
-            "x_int": np.array(self.x_int),
-            "y_int": np.array(self.y_int),
-            "vx_int": np.array(self.vx_int),
-            "vy_int": np.array(self.vy_int)
+            "cos(drift)": self.cos_drift,
+            "sin(drift)": self.sin_drift,
+            "x": self.x,
+            "y": self.y,
+            "vx": self.vx,
+            "vy": self.vy,
+            "x_int": self.x_int,
+            "y_int": self.y_int,
+            "vx_int": self.vx_int,
+            "vy_int": self.vy_int
             }
         
         return observation
     
+    def _get_obs_Local(self):
+
+        ac_idx = bs.traf.id2idx(ACTOR)
+
+        # Observation vector shape and components
+        self.cos_drift = np.array([])
+        self.sin_drift = np.array([])
+        self.airspeed = np.array([])
+        self.x_r = np.array([])
+        self.y_r = np.array([])
+        self.vx_r = np.array([])
+        self.vy_r = np.array([])
+        self.cos_track = np.array([])
+        self.sin_track = np.array([])
+        self.distances = np.array([])
+
+        # Drift of agent aircraft for reward calculation
+        drift = 0
+
+        ac_hdg = bs.traf.hdg[ac_idx]
+        
+        # Get and decompose agent aircaft drift
+        wpt_qdr, _  = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.wpts[0][0], self.wpts[0][1])
+        drift = ac_hdg - wpt_qdr
+        drift = fn.bound_angle_positive_negative_180(drift)
+        self.drift = drift
+        self.cos_drift = np.append(self.cos_drift, np.cos(np.deg2rad(drift)))
+        self.sin_drift = np.append(self.sin_drift, np.sin(np.deg2rad(drift)))
+
+        # Get agent aircraft airspeed, m/s
+        self.airspeed = np.append(self.airspeed, bs.traf.tas[ac_idx])
+
+        vx = np.cos(np.deg2rad(ac_hdg)) * bs.traf.tas[ac_idx]
+        vy = np.sin(np.deg2rad(ac_hdg)) * bs.traf.tas[ac_idx]
+
+        ac_loc = fn.latlong_to_nm(CENTER, np.array([bs.traf.lat[ac_idx], bs.traf.lon[ac_idx]])) * NM2KM * 1000 # Two-step conversion lat/long -> NM -> m
+        distances = [fn.euclidean_distance(ac_loc, fn.latlong_to_nm(CENTER, np.array([bs.traf.lat[i], bs.traf.lon[i]])) * NM2KM * 1000) for i in range(1, self.num_ac)]
+        ac_idx_by_dist = np.argsort(distances)
+
+        for i in range(1, self.num_ac):
+            ac_idx = ac_idx_by_dist[i]+1
+            int_hdg = bs.traf.hdg[ac_idx]
+            
+            # Intruder AC relative position, m
+            int_loc = fn.latlong_to_nm(CENTER, np.array([bs.traf.lat[ac_idx], bs.traf.lon[ac_idx]])) * NM2KM * 1000
+            self.x_r = np.append(self.x_r, int_loc[0] - ac_loc[0])
+            self.y_r = np.append(self.y_r, int_loc[1] - ac_loc[1])
+            
+            # Intruder AC relative velocity, m/s
+            vx_int = np.cos(np.deg2rad(int_hdg)) * bs.traf.tas[ac_idx]
+            vy_int = np.sin(np.deg2rad(int_hdg)) * bs.traf.tas[ac_idx]
+            self.vx_r = np.append(self.vx_r, vx_int - vx)
+            self.vy_r = np.append(self.vy_r, vy_int - vy)
+
+            # Intruder AC relative track, rad
+            track = np.arctan2(vy_int - vy, vx_int - vx)
+            self.cos_track = np.append(self.cos_track, np.cos(track))
+            self.sin_track = np.append(self.sin_track, np.sin(track))
+
+            self.distances = np.append(self.distances, distances[i-1])
+
+        observation = {
+            "cos(drift)": self.cos_drift,
+            "sin(drift)": self.sin_drift,
+            "airspeed": self.airspeed,
+            "x_r": self.x_r,
+            "y_r": self.y_r,
+            "vx_r": self.vx_r,
+            "vy_r": self.vy_r,
+            "cos(track)": self.cos_track,
+            "sin(track)": self.sin_track,
+            "distances": self.distances
+        }
+        return observation
+    
+    def _get_action(self, action):
+        dh = np.clip(action[0], -D_HEADING, D_HEADING)
+        dv = np.clip(action[1], -D_VELOCITY, D_VELOCITY)
+        heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(ACTOR)] + dh)
+        speed_new = (bs.traf.tas[bs.traf.id2idx(ACTOR)] + dv) * MpS2Kt
+
+        bs.stack.stack(f"HDG {ACTOR} {heading_new}")
+        bs.stack.stack(f"SPD {ACTOR} {speed_new}")
+
+
     def _check_drift(self):
         return abs(np.deg2rad(self.drift)) * DRIFT_PENALTY
     
