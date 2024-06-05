@@ -95,7 +95,7 @@ class PolygonCREnv(gym.Env):
        
         self._generate_polygon() # Create airspace polygon
         
-        self.num_ac = int(max(np.ceil(np.random.uniform(*AC_DENSITY_RANGE) * self.poly_area), NUM_AC_STATE+1)) # Get total number of AC in the airspace including agent (min = 2)
+        self.num_ac = int(max(np.ceil(np.random.uniform(*AC_DENSITY_RANGE) * self.poly_area), NUM_AC_STATE+1)) # Get total number of AC in the airspace including agent (min = 3)
         self._generate_waypoints() # Create waypoints for aircraft
         self._generate_ac() # Create aircraft in the airspace
 
@@ -297,10 +297,10 @@ class PolygonCREnv(gym.Env):
             "y": self.y,
             "vx": self.vx,
             "vy": self.vy,
-            "x_int": self.x_int,
-            "y_int": self.y_int,
-            "vx_int": self.vx_int,
-            "vy_int": self.vy_int
+            "x_int": self.x_int[:NUM_AC_STATE],
+            "y_int": self.y_int[:NUM_AC_STATE],
+            "vx_int": self.vx_int[:NUM_AC_STATE],
+            "vy_int": self.vy_int[:NUM_AC_STATE]
             }
         
         return observation
@@ -370,13 +370,13 @@ class PolygonCREnv(gym.Env):
             "cos(drift)": self.cos_drift,
             "sin(drift)": self.sin_drift,
             "airspeed": self.airspeed,
-            "x_r": self.x_r,
-            "y_r": self.y_r,
-            "vx_r": self.vx_r,
-            "vy_r": self.vy_r,
-            "cos(track)": self.cos_track,
-            "sin(track)": self.sin_track,
-            "distances": self.distances
+            "x_r": self.x_r[:NUM_AC_STATE],
+            "y_r": self.y_r[:NUM_AC_STATE],
+            "vx_r": self.vx_r[:NUM_AC_STATE],
+            "vy_r": self.vy_r[:NUM_AC_STATE],
+            "cos(track)": self.cos_track[:NUM_AC_STATE],
+            "sin(track)": self.sin_track[:NUM_AC_STATE],
+            "distances": self.distances[:NUM_AC_STATE]
         }
         return observation
     
