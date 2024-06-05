@@ -23,7 +23,7 @@ NM2KM = 1.852
 MpS2Kt = 1.94384
 FL2M = 30.48
 
-INTRUSION_DISTANCE = 5/NM2KM # NM
+INTRUSION_DISTANCE = 5 # NM
 
 
 # Model parameters
@@ -90,6 +90,7 @@ class PolygonCREnv(gym.Env):
         self.clock = None
     
     def reset(self, seed=None, options=None):
+        bs.sim.reset()
         super().reset(seed=seed)
        
         self._generate_polygon() # Create airspace polygon
@@ -413,7 +414,7 @@ class PolygonCREnv(gym.Env):
             self.clock = pygame.time.Clock()
 
         max_distance = max(np.linalg.norm(point1 - point2) for point1 in self.poly_points for point2 in self.poly_points)*NM2KM
-        print(max_distance)
+        
         px_per_km = self.window_width/max_distance
 
         canvas = pygame.Surface(self.window_size)
@@ -426,28 +427,32 @@ class PolygonCREnv(gym.Env):
 
         # Draw ownship
         ac_idx = bs.traf.id2idx(ACTOR)
-        ac_length = 8
+        ac_length = 10
         ac_hdg = bs.traf.hdg[ac_idx]
         heading_end_x = np.cos(np.deg2rad(ac_hdg)) * ac_length
         heading_end_y = np.sin(np.deg2rad(ac_hdg)) * ac_length
+        ac_qdr, ac_dis = bs.tools.geo.kwikqdrdist(CENTER[0], CENTER[1], bs.traf.lat[ac_idx], bs.traf.lon[ac_idx])
+
+        x_pos = (self.window_width/2)+(np.cos(np.deg2rad(ac_qdr))*(ac_dis * NM2KM)*px_per_km)
+        y_pos = (self.window_height/2)-(np.sin(np.deg2rad(ac_qdr))*(ac_dis * NM2KM)*px_per_km)
 
         pygame.draw.line(canvas,
             (0,0,0),
-            (self.window_width/2-heading_end_x/2,self.window_height/2+heading_end_y/2),
-            (self.window_width/2+heading_end_x/2,self.window_height/2-heading_end_y/2),
+            (x_pos,y_pos),
+            ((x_pos)+heading_end_x,(y_pos)-heading_end_y),
             width = 4
         )
 
         # Draw heading line
-        heading_length = 50
+        heading_length = 20
         heading_end_x = np.cos(np.deg2rad(ac_hdg)) * heading_length
         heading_end_y = np.sin(np.deg2rad(ac_hdg)) * heading_length
 
         pygame.draw.line(canvas,
-            (0,0,0),
-            (self.window_width/2,self.window_height/2),
-            ((self.window_width/2)+heading_end_x,(self.window_height/2)-heading_end_y),
-            width = 1
+                (0,0,0),
+                (x_pos,y_pos),
+                ((x_pos)+heading_end_x,(y_pos)-heading_end_y),
+                width = 1
         )
 
         # Draw intruders
@@ -459,10 +464,11 @@ class PolygonCREnv(gym.Env):
             heading_end_x = np.cos(np.deg2rad(int_hdg)) * ac_length
             heading_end_y = np.sin(np.deg2rad(int_hdg)) * ac_length
 
-            int_qdr, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
+            int_qdr, int_dis = bs.tools.geo.kwikqdrdist(CENTER[0], CENTER[1], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
+            separation = bs.tools.geo.kwikdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
 
             # Determine color
-            if int_dis < INTRUSION_DISTANCE:
+            if separation < INTRUSION_DISTANCE:
                 color = (220,20,60)
             else: 
                 color = (80,80,80)
@@ -478,7 +484,7 @@ class PolygonCREnv(gym.Env):
             )
 
             # Draw heading line
-            heading_length = 10
+            heading_length = 20
             heading_end_x = np.cos(np.deg2rad(int_hdg)) * heading_length
             heading_end_y = np.sin(np.deg2rad(int_hdg)) * heading_length
 
