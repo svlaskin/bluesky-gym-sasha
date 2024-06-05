@@ -2,28 +2,31 @@ import numpy as np
 import pygame
 
 import bluesky as bs
-from envs.common.screen_dummy import ScreenDummy
-import envs.common.functions as fn
+from bluesky_gym.envs.common.screen_dummy import ScreenDummy
+import bluesky_gym.envs.common.functions as fn
 
 import gymnasium as gym
 from gymnasium import spaces
 
-AC_DENSITY_RANGE = np.array(0.00000001, 0.0000001) # In AC/NM^2
-POLY_AREA_RANGE = np.array(150, 250) # In NM^2
+AC_DENSITY_RANGE = (0.01, 0.04) # In AC/NM^2
+POLY_AREA_RANGE = (150, 250) # In NM^2
 CENTER = np.array([51.990426702297746, 4.376124857109851]) # TU Delft AE Faculty coordinates
+ALTITUDE = 350 # In FL
 
+# Aircraft parameters
 AC_SPD = 150
 AC_TYPE = "A320"
+ACTOR = "KL001"
 
-DISTANCE_MARGIN = 5 # km
-INTRUSION_DISTANCE = 25 # NM
-
-
+# Conversion factors
 NM2KM = 1.852
 MpS2Kt = 1.94384
+FL2M = 30.48
+
+INTRUSION_DISTANCE = 5/NM2KM # NM
+
 
 # Model parameters
-ACTOR = "KL001"
 ACTION_FREQUENCY = 10
 NUM_AC_STATE = 2
 DRIFT_PENALTY = 0
@@ -91,9 +94,9 @@ class PolygonCREnv(gym.Env):
        
         self._generate_polygon() # Create airspace polygon
         
-        self.num_ac = max(np.ceil(np.random.uniform(*AC_DENSITY_RANGE) * self.poly_area), 2) # Get total number of AC in the airspace including agent (min = 2)
-        self._generate_ac() # Create aircraft in the airspace
+        self.num_ac = int(max(np.ceil(np.random.uniform(*AC_DENSITY_RANGE) * self.poly_area), NUM_AC_STATE+1)) # Get total number of AC in the airspace including agent (min = 2)
         self._generate_waypoints() # Create waypoints for aircraft
+        self._generate_ac() # Create aircraft in the airspace
 
         # Observation vector dependent on type chosen
         if self.observation_space == self.BasicAbs:
@@ -133,6 +136,7 @@ class PolygonCREnv(gym.Env):
         info = self._get_info()
 
         return observation, reward, False, False, info
+    
     def _generate_polygon(self):
         
         R = np.sqrt(POLY_AREA_RANGE[1] / np.pi)
@@ -194,8 +198,7 @@ class PolygonCREnv(gym.Env):
         while len(init_p_latlong) < self.num_ac:
             p = np.array([np.random.uniform(min_x, max_x), np.random.uniform(min_y, max_y)])
             p = fn.nm_to_latlong(CENTER, p)
-            
-            if bs.tools.areafilter.checkInside(self.poly_name, p[0], p[1], alt=0):
+            if bs.tools.areafilter.checkInside(self.poly_name, np.array([p[0]]), np.array([p[1]]), np.array([ALTITUDE*FL2M])):
                 init_p_latlong.append(p)
         
         wpt_agent = fn.nm_to_latlong(CENTER, self.wpts[0])
@@ -203,13 +206,13 @@ class PolygonCREnv(gym.Env):
         hdg_agent = fn.get_hdg(init_pos_agent, wpt_agent)
         
         # Actor AC is the only one that has ACTOR as acid
-        bs.traf.cre(ACTOR, actype=AC_TYPE, aclat=init_pos_agent[0], aclon=init_pos_agent[1], achdg=hdg_agent, acspd=AC_SPD)
+        bs.traf.cre(ACTOR, actype=AC_TYPE, aclat=init_pos_agent[0], aclon=init_pos_agent[1], achdg=hdg_agent, acspd=AC_SPD, acalt=ALTITUDE)
         
-        for i in range(1, len(init_p_latlong)+1):
+        for i in range(1, len(init_p_latlong)):
             wpt = fn.nm_to_latlong(CENTER, self.wpts[i])
             init_pos = init_p_latlong[i]
             hdg = fn.get_hdg(init_pos, wpt)
-            bs.traf.cre(acid=i, actype=AC_TYPE, aclat=init_pos[0], aclon=init_pos[1], achdg=hdg, acspd=AC_SPD)
+            bs.traf.cre(acid=str(i), actype=AC_TYPE, aclat=init_pos[0], aclon=init_pos[1], achdg=hdg, acspd=AC_SPD)
     
     def _get_info(self):
         # Here you implement any additional info that you want to return after a step,
@@ -271,7 +274,7 @@ class PolygonCREnv(gym.Env):
         distances = [fn.euclidean_distance(ac_loc, fn.latlong_to_nm(CENTER, np.array([bs.traf.lat[i], bs.traf.lon[i]])) * NM2KM * 1000) for i in range(1, self.num_ac)]
         ac_idx_by_dist = np.argsort(distances)
 
-        for i in range(1, self.num_ac):
+        for i in range(self.num_ac-1):
             ac_idx = ac_idx_by_dist[i]+1
             int_hdg = bs.traf.hdg[ac_idx]
             
@@ -340,7 +343,7 @@ class PolygonCREnv(gym.Env):
         distances = [fn.euclidean_distance(ac_loc, fn.latlong_to_nm(CENTER, np.array([bs.traf.lat[i], bs.traf.lon[i]])) * NM2KM * 1000) for i in range(1, self.num_ac)]
         ac_idx_by_dist = np.argsort(distances)
 
-        for i in range(1, self.num_ac):
+        for i in range(self.num_ac-1):
             ac_idx = ac_idx_by_dist[i]+1
             int_hdg = bs.traf.hdg[ac_idx]
             
@@ -409,34 +412,36 @@ class PolygonCREnv(gym.Env):
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        max_distance = 500 # width of screen in km
+        max_distance = max(np.linalg.norm(point1 - point2) for point1 in self.poly_points for point2 in self.poly_points)*NM2KM
+        print(max_distance)
+        px_per_km = self.window_width/max_distance
 
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235))
         
         # Draw airspace
         airspace_color = (255, 0, 0)
-        coords = [(point[0]*self.window_width/NM2KM*max_distance, point[1]*self.window_height/NM2KM*max_distance) for point in self.poly_points]
-        pygame.draw.polygon(canvas, airspace_color, coords, width = 2)
+        coords = [((self.window_width/2)+point[0]*NM2KM*px_per_km, (self.window_height/2)-point[1]*NM2KM*px_per_km) for point in self.poly_points]
+        pygame.draw.polygon(canvas, airspace_color, coords, width=2)
 
         # Draw ownship
         ac_idx = bs.traf.id2idx(ACTOR)
         ac_length = 8
         ac_hdg = bs.traf.hdg[ac_idx]
-        heading_end_x = ((np.cos(np.deg2rad(ac_hdg)) * ac_length)/max_distance)*self.window_width
-        heading_end_y = ((np.sin(np.deg2rad(ac_hdg)) * ac_length)/max_distance)*self.window_width
+        heading_end_x = np.cos(np.deg2rad(ac_hdg)) * ac_length
+        heading_end_y = np.sin(np.deg2rad(ac_hdg)) * ac_length
 
         pygame.draw.line(canvas,
             (0,0,0),
             (self.window_width/2-heading_end_x/2,self.window_height/2+heading_end_y/2),
-            ((self.window_width/2)+heading_end_x/2,(self.window_height/2)-heading_end_y/2),
+            (self.window_width/2+heading_end_x/2,self.window_height/2-heading_end_y/2),
             width = 4
         )
 
         # Draw heading line
         heading_length = 50
-        heading_end_x = ((np.cos(np.deg2rad(ac_hdg)) * heading_length)/max_distance)*self.window_width
-        heading_end_y = ((np.sin(np.deg2rad(ac_hdg)) * heading_length)/max_distance)*self.window_width
+        heading_end_x = np.cos(np.deg2rad(ac_hdg)) * heading_length
+        heading_end_y = np.sin(np.deg2rad(ac_hdg)) * heading_length
 
         pygame.draw.line(canvas,
             (0,0,0),
@@ -451,8 +456,8 @@ class PolygonCREnv(gym.Env):
         for i in range(self.num_ac-1):
             int_idx = i+1
             int_hdg = bs.traf.hdg[int_idx]
-            heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
-            heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
+            heading_end_x = np.cos(np.deg2rad(int_hdg)) * ac_length
+            heading_end_y = np.sin(np.deg2rad(int_hdg)) * ac_length
 
             int_qdr, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
 
@@ -462,8 +467,8 @@ class PolygonCREnv(gym.Env):
             else: 
                 color = (80,80,80)
 
-            x_pos = (self.window_width/2)+(np.cos(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_width
-            y_pos = (self.window_height/2)-(np.sin(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_height
+            x_pos = (self.window_width/2)+(np.cos(np.deg2rad(int_qdr))*(int_dis * NM2KM)*px_per_km)
+            y_pos = (self.window_height/2)-(np.sin(np.deg2rad(int_qdr))*(int_dis * NM2KM)*px_per_km)
 
             pygame.draw.line(canvas,
                 color,
@@ -474,8 +479,8 @@ class PolygonCREnv(gym.Env):
 
             # Draw heading line
             heading_length = 10
-            heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * heading_length)/max_distance)*self.window_width
-            heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * heading_length)/max_distance)*self.window_width
+            heading_end_x = np.cos(np.deg2rad(int_hdg)) * heading_length
+            heading_end_y = np.sin(np.deg2rad(int_hdg)) * heading_length
 
             pygame.draw.line(canvas,
                 color,
@@ -488,7 +493,7 @@ class PolygonCREnv(gym.Env):
                 canvas, 
                 color,
                 (x_pos,y_pos),
-                radius = (INTRUSION_DISTANCE*NM2KM/max_distance)*self.window_width,
+                radius = INTRUSION_DISTANCE*NM2KM*px_per_km,
                 width = 2
             )
 

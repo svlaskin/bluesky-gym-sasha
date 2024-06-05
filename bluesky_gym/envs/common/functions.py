@@ -71,7 +71,7 @@ def sort_points_clockwise(vertices: np.array) -> np.array:
     sorted_vertices: np.array
         sorted array of points
     """
-    sorted_vertices = vertices[np.argsort(np.arctan2(vertices[:, 1], vertices[:, 0]))]
+    sorted_vertices = [vertices[i] for i in np.argsort([np.arctan2(v[1], v[0]) for v in vertices])]
 
     return sorted_vertices
     

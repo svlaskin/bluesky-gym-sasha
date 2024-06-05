@@ -11,12 +11,12 @@ import bluesky_gym.envs
 
 bluesky_gym.register_envs()
 
-TRAIN = False
+TRAIN = True
 EVAL_EPISODES = 10
 
 if __name__ == "__main__":
     # Create the environment
-    env = gym.make('PlanWaypointEnv-v0', render_mode=None)
+    env = gym.make('PolygonCREnv-v0', render_mode="human")
     obs, info = env.reset()
 
     # Create the model
@@ -25,15 +25,15 @@ if __name__ == "__main__":
     # Train the model
     if TRAIN:
         model.learn(total_timesteps=int(20e5))
-        model.save("models/PlanWaypointEnv-v0_ppo/model")
+        model.save("models/PolygonCREnv-v0_ppo/model")
         del model
     
     env.close()
     
     # Test the trained model
 
-    model = PPO.load("models/PlanWaypointEnv-v0_ppo/model", env=env)
-    env = gym.make('PlanWaypointEnv-v0', render_mode="human")
+    model = PPO.load("models/PolygonCREnv-v0_ppo/model", env=env)
+    env = gym.make('PolygonCREnv-v0', render_mode="human")
 
     for i in range(EVAL_EPISODES):
         done = truncated = False
