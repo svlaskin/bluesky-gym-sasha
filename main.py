@@ -11,13 +11,14 @@ import bluesky_gym.envs
 
 bluesky_gym.register_envs()
 
-TRAIN = False
+TRAIN = True
 EVAL_EPISODES = 10
 EPOCHS = 200
 
 if __name__ == "__main__":
     # Create the environment
     env = gym.make('StaticObstacleCREnv-v0', render_mode=None)
+
     obs, info = env.reset()
 
     # Create the model
