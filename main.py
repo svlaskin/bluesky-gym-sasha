@@ -44,6 +44,8 @@ if __name__ == "__main__":
         while not (done or truncated):
             # Predict
             # action = np.array([0])
+            # import code
+            # code.interact(local=locals())
             action, _states = model.predict(obs, deterministic=True)
             # Get reward
             obs, reward, done, truncated, info = env.step(action[()])

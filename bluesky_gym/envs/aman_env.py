@@ -8,6 +8,8 @@ import bluesky_gym.envs.common.functions as fn
 import gymnasium as gym
 from gymnasium import spaces
 
+import random
+
 DISTANCE_MARGIN = 5 # km
 REACH_REWARD = 1
 
@@ -17,8 +19,8 @@ INTRUSION_PENALTY = -1
 # NUM_WAYPOINTS = 1
 INTRUSION_DISTANCE = 5 # NM
 
-# WAYPOINT_DISTANCE_MIN = 100
-# WAYPOINT_DISTANCE_MAX = 150
+WAYPOINT_DISTANCE_MIN = 100
+WAYPOINT_DISTANCE_MAX = 150
 
 D_HEADING = 45 # heading delta from approach fix, one way
 D_SPEED = 20 # random value for now
@@ -30,7 +32,7 @@ NM2KM = 1.852
 ACTION_FREQUENCY = 10
 
 NUM_AC = 10
-NUM_WAYPOINTS = 2
+NUM_WAYPOINTS = 1
 
 # Fix, north of EHAM in Heiloo
 FIX_LAT = 52.59382191779792
@@ -61,18 +63,17 @@ class AmanEnv(gym.Env):
 
         # Observation space should include info of all aircraft
 
-        # 
         self.observation_space = spaces.Dict(
             {
-                # "intruder_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
-                # "cos_difference_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
-                # "sin_difference_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
-                # "x_difference_speed": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
-                # "y_difference_speed": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
-                # "waypoint_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
+                "intruder_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
+                "cos_difference_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
+                "sin_difference_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
+                "x_difference_speed": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
+                "y_difference_speed": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
+                "waypoint_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
                 # "cos_drift": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
-                # "sin_drift": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64)
-                "fix_distance": spaces.Box(-np.inf, np.inf, shape=(NUM_AC,), dtype=np.float64)
+                # "sin_drift": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
+                "faf_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64)
             }
         )
        
@@ -98,6 +99,8 @@ class AmanEnv(gym.Env):
 
         # ownship - create at same location. hardcoded over den helder
         bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= 52.97843850741256,aclon=4.511017581418151,achdg=180)
+        bs.stack.stack(f"KL001 addwpt {FIX_LAT} {FIX_LON}")
+        bs.stack.stack(f"KL001 dest {RWY_LAT} {RWY_LON}")
 
         # self._generate_conflicts()
         # self._generate_waypoint()
@@ -176,11 +179,21 @@ class AmanEnv(gym.Env):
     def _gen_aircraft(self):
         for i in range(NUM_AC-1):
             # randomise position here
-            lat_ac = None
-            lon_ac = None
-            # create aircraft
-            bs.traf.cre(f'INT{i}',actype="A320",acspd=AC_SPD,aclat=ACLAT_INIT,aclon=ACLON_INIT,achdg=180)
+            bearing_to_pos = random.uniform(-D_HEADING/2, D_HEADING/2) # heading radial towards FAF
+            distance_to_pos = random.uniform(INTRUSION_DISTANCE,15) # from 5 to 15 nautical miles from the FAF is the initial spawn position 
 
+            lat_ac, lon_ac = fn.get_point_at_distance(FIX_LAT, FIX_LON, distance_to_pos, bearing_to_pos)
+            
+            self.wpt_lat = FIX_LAT
+            self.wpt_lon = FIX_LON
+            self.rwy_lat = RWY_LAT
+            self.rwy_lon = RWY_LON
+
+            # create aircraft
+            bs.traf.cre(f'INT{i}',actype="A320",acspd=AC_SPD,aclat=lat_ac,aclon=lon_ac,achdg=180)
+            bs.stack.stack(f"KL001 addwpt {FIX_LAT} {FIX_LON}")
+            bs.stack.stack(f"KL001 dest {RWY_LAT} {RWY_LON}")
+            
         return
 
     def _get_obs(self):
@@ -193,6 +206,7 @@ class AmanEnv(gym.Env):
         self.y_difference_speed = []
 
         self.waypoint_distance = []
+        self.faf_distance = []
         self.wpt_qdr = []
         self.cos_drift = []
         self.sin_drift = []
@@ -201,51 +215,55 @@ class AmanEnv(gym.Env):
         self.ac_hdg = bs.traf.hdg[ac_idx]
         self.ac_spd = bs.traf.gs[ac_idx]
 
-        # for i in range(NUM_AC):
-        #     int_idx = i+1
-        #     int_qdr, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
+        for i in range(NUM_AC):
+            int_idx = i
+            int_qdr, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
         
-        #     self.intruder_distance.append(int_dis * NM2KM)
+            self.intruder_distance.append(int_dis * NM2KM)
 
-        #     bearing = self.ac_hdg - int_qdr
-        #     bearing = fn.bound_angle_positive_negative_180(bearing)
+            bearing = self.ac_hdg - int_qdr
+            bearing = fn.bound_angle_positive_negative_180(bearing)
 
-        #     self.cos_bearing.append(np.cos(np.deg2rad(bearing)))
-        #     self.sin_bearing.append(np.sin(np.deg2rad(bearing)))
+            self.cos_bearing.append(np.cos(np.deg2rad(bearing)))
+            self.sin_bearing.append(np.sin(np.deg2rad(bearing)))
 
-        #     heading_difference = bs.traf.hdg[ac_idx] - bs.traf.hdg[int_idx]
-        #     x_dif = - np.cos(np.deg2rad(heading_difference)) * bs.traf.gs[int_idx]
-        #     y_dif = bs.traf.gs[ac_idx] - np.sin(np.deg2rad(heading_difference)) * bs.traf.gs[int_idx]
+            heading_difference = bs.traf.hdg[ac_idx] - bs.traf.hdg[int_idx]
+            x_dif = - np.cos(np.deg2rad(heading_difference)) * bs.traf.gs[int_idx]
+            y_dif = bs.traf.gs[ac_idx] - np.sin(np.deg2rad(heading_difference)) * bs.traf.gs[int_idx]
 
-        #     self.x_difference_speed.append(x_dif)
-        #     self.y_difference_speed.append(y_dif)
+            self.x_difference_speed.append(x_dif)
+            self.y_difference_speed.append(y_dif)
+            # WPT is RWY
+            wpt_qdr, wpt_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[int_idx], bs.traf.lon[int_idx], self.rwy_lat, self.rwy_lon)
+            self.waypoint_distance.append(wpt_dis * NM2KM)
+            # FAF
+            faf_qdr, faf_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[int_idx], bs.traf.lon[int_idx], self.wpt_lat, self.wpt_lon)
+            self.faf_distance.append(faf_dis * NM2KM)
 
-
-        for lat, lon in zip(self.wpt_lat, self.wpt_lon):
-            
-            self.ac_hdg = bs.traf.hdg[ac_idx]
-            wpt_qdr, wpt_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], lat, lon)
         
-            # self.waypoint_distance.append(wpt_dis * NM2KM)
-            # self.wpt_qdr.append(wpt_qdr)
+        # self.ac_hdg = bs.traf.hdg[ac_idx]
+        # wpt_qdr, wpt_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.wpt_lat, self.wpt_lon)
+    
+        # self.waypoint_distance.append(wpt_dis * NM2KM)
+        # self.wpt_qdr.append(wpt_qdr)
 
-            # drift = self.ac_hdg - wpt_qdr
-            # drift = fn.bound_angle_positive_negative_180(drift)
+        # drift = self.ac_hdg - wpt_qdr
+        # drift = fn.bound_angle_positive_negative_180(drift)
 
-            # self.drift.append(drift)
-            # self.cos_drift.append(np.cos(np.deg2rad(drift)))
-            # self.sin_drift.append(np.sin(np.deg2rad(drift)))
+        # self.drift.append(drift)
+        # self.cos_drift.append(np.cos(np.deg2rad(drift)))
+        # self.sin_drift.append(np.sin(np.deg2rad(drift)))
 
         observation = {
-                # "intruder_distance": np.array(self.intruder_distance)/WAYPOINT_DISTANCE_MAX,
-                # "cos_difference_pos": np.array(self.cos_bearing),
-                # "sin_difference_pos": np.array(self.sin_bearing),
-                # "x_difference_speed": np.array(self.x_difference_speed)/AC_SPD,
-                # "y_difference_speed": np.array(self.y_difference_speed)/AC_SPD,
-                # "waypoint_distance": np.array(self.waypoint_distance)/WAYPOINT_DISTANCE_MAX,
+                "intruder_distance": np.array(self.intruder_distance)/WAYPOINT_DISTANCE_MAX,
+                "cos_difference_pos": np.array(self.cos_bearing),
+                "sin_difference_pos": np.array(self.sin_bearing),
+                "x_difference_speed": np.array(self.x_difference_speed)/AC_SPD,
+                "y_difference_speed": np.array(self.y_difference_speed)/AC_SPD,
+                "waypoint_distance": np.array(self.waypoint_distance)/WAYPOINT_DISTANCE_MAX,
                 # "cos_drift": np.array(self.cos_drift),
-                # "sin_drift": np.array(self.sin_drift)
-                "fix_distance": np.array(wpt_dis)
+                # "sin_drift": np.array(self.sin_drift),
+                "faf_distance": np.array(self.faf_distance)/WAYPOINT_DISTANCE_MAX
             }
         
         return observation
@@ -275,18 +293,18 @@ class AmanEnv(gym.Env):
         else:
             return total_reward, 1
         
-    # def _check_waypoint(self):
-    #     reward = 0
-    #     index = 0
-    #     for distance in self.waypoint_distance:
-    #         if distance < DISTANCE_MARGIN and self.wpt_reach[index] != 1:
-    #             self.wpt_reach[index] = 1
-    #             reward += REACH_REWARD
-    #             index += 1
-    #         else:
-    #             reward += 0
-    #             index += 1
-    #     return reward
+    def _check_waypoint(self):
+        reward = 0
+        index = 0
+        for distance in self.waypoint_distance:
+            if distance < DISTANCE_MARGIN and self.wpt_reach[index] != 1:
+                self.wpt_reach[index] = 1
+                reward += REACH_REWARD
+                index += 1
+            else:
+                reward += 0
+                index += 1
+        return reward
 
     # def _check_drift(self):
     #     return abs(np.deg2rad(self.drift[0])) * DRIFT_PENALTY
@@ -294,7 +312,7 @@ class AmanEnv(gym.Env):
     def _check_intrusion(self):
         ac_idx = bs.traf.id2idx('KL001')
         reward = 0
-        for i in range(NUM_AC):
+        for i in range(NUM_AC-1): # excluding ownship
             int_idx = i+1
             _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
             if int_dis < INTRUSION_DISTANCE:
@@ -308,7 +326,7 @@ class AmanEnv(gym.Env):
 
     #         bs.stack.stack(f"HDG KL001 {action[0]}")
     def _get_action(self,action):
-        action = self.ac_speed + action * D_SPEED
+        action = self.ac_spd + action * D_SPEED
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
@@ -352,8 +370,8 @@ class AmanEnv(gym.Env):
         # draw intruders
         ac_length = 3
 
-        for i in range(NUM_AC):
-            int_idx = i+1
+        for i in range(0,NUM_AC):
+            int_idx = i
             int_hdg = bs.traf.hdg[int_idx]
             heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
             heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
@@ -404,6 +422,7 @@ class AmanEnv(gym.Env):
             # code.interact(local=locals())
 
         # draw target waypoint - Here it is the runway
+        self.wpt_reach = np.zeros_like(self.intruder_distance)
         for qdr, dis, reach in zip(self.wpt_qdr, self.waypoint_distance, self.wpt_reach):
 
             circle_x = ((np.cos(np.deg2rad(qdr)) * dis)/max_distance)*self.window_width
