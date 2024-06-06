@@ -9,7 +9,7 @@ import gymnasium as gym
 from gymnasium import spaces
 
 AC_DENSITY_RANGE = (0.01, 0.04) # In AC/NM^2
-POLY_AREA_RANGE = (150, 250) # In NM^2
+POLY_AREA_RANGE = (1500, 2500) # In NM^2
 CENTER = np.array([51.990426702297746, 4.376124857109851]) # TU Delft AE Faculty coordinates
 ALTITUDE = 350 # In FL
 
@@ -29,10 +29,10 @@ INTRUSION_DISTANCE = 5 # NM
 # Model parameters
 ACTION_FREQUENCY = 10
 NUM_AC_STATE = 2
-DRIFT_PENALTY = 0
-INTRUSION_PENALTY = 0
-D_HEADING = 0
-D_VELOCITY = 0
+DRIFT_PENALTY = -0.1
+INTRUSION_PENALTY = -1
+D_HEADING = 22.5 # deg
+D_VELOCITY = 20/3 # kts
 
 class PolygonCREnv(gym.Env):
     """ 
