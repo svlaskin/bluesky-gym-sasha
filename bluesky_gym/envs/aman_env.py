@@ -180,7 +180,7 @@ class AmanEnv(gym.Env):
         for i in range(NUM_AC-1):
             # randomise position here
             bearing_to_pos = random.uniform(-D_HEADING/2, D_HEADING/2) # heading radial towards FAF
-            distance_to_pos = random.uniform(INTRUSION_DISTANCE,15) # from 5 to 15 nautical miles from the FAF is the initial spawn position 
+            distance_to_pos = random.uniform(7.5,30) # distance to faf 
 
             lat_ac, lon_ac = fn.get_point_at_distance(FIX_LAT, FIX_LON, distance_to_pos, bearing_to_pos)
             
