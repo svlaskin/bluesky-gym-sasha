@@ -180,26 +180,11 @@ class StaticObstacleCREnv(gym.Env):
         self.obstacle_names = []
         self.obstacle_vertices = []
         #self._generate_waypoint(num_waypoints = NUM_OBSTACLES)
-        obst_centre_lat, obst_centre_lon = self._generate_coordinates_centre_obstacles(num_obstacles = NUM_OBSTACLES)
+        self._generate_coordinates_centre_obstacles(num_obstacles = NUM_OBSTACLES)
 
         for i in range(NUM_OBSTACLES):
-            centre_obst = (obst_centre_lat[i], obst_centre_lon[i])
+            centre_obst = (self.obstacle_lat[i], self.obstacle_lon[i])
             p_area, p = self._generate_polygon(centre_obst)
-
-            # R = np.sqrt(POLY_AREA_RANGE[1] / np.pi)
-            # p = [fn.random_point_on_circle(R) for _ in range(3)] # 3 random points to start building the polygon
-            # p = fn.sort_points_clockwise(p)
-            # p_area = fn.polygon_area(p)
-            # # self.poly_area = p_area
-            
-            # while p_area < POLY_AREA_RANGE[0]:
-            #     p.append(fn.random_point_on_circle(R))
-            #     p = fn.sort_points_clockwise(p)
-            #     p_area = fn.polygon_area(p)
-            
-            # self.poly_points = p # Polygon vertices are saved in terms of NM
-            
-            # p = [fn.nm_to_latlong(CENTER, point) for point in p] # Convert to lat/long coordinateS
             
             points = [coord for point in p for coord in point] # Flatten the list of points
             poly_name = 'restricted_area_' + str(i+1)
@@ -247,6 +232,7 @@ class StaticObstacleCREnv(gym.Env):
         self.obstacle_lat = []
         self.obstacle_lon = []
         # self.wpt_reach = []
+        
         for i in range(num_obstacles):
             obstacle_dis_from_reference = np.random.randint(OBSTACLE_DISTANCE_MIN, OBSTACLE_DISTANCE_MAX)
             obstacle_hdg_from_reference = np.random.randint(OBSTACLE_DISTANCE_MIN, OBSTACLE_DISTANCE_MAX)
@@ -255,8 +241,11 @@ class StaticObstacleCREnv(gym.Env):
             obstacle_lat, obstacle_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], obstacle_dis_from_reference, obstacle_hdg_from_reference)    
             self.obstacle_lat.append(obstacle_lat)
             self.obstacle_lon.append(obstacle_lon)
+            print(num_obstacles, i)
             # self.wpt_reach.append(0)
-
+        import code
+        code.interact(local=locals())
+        
     def _get_obs(self):
         ac_idx = bs.traf.id2idx('KL001')
 
