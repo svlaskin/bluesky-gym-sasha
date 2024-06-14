@@ -22,6 +22,9 @@ INTRUSION_DISTANCE = 5 # NM
 WAYPOINT_DISTANCE_MIN = 100 # KM
 WAYPOINT_DISTANCE_MAX = 150 # KM
 
+OBSTACLE_DISTANCE_MIN = 20 # KM
+OBSTACLE_DISTANCE_MAX = 150 # KM
+
 D_HEADING = 45 #degrees
 
 AC_SPD = 150 # kts
@@ -111,8 +114,7 @@ class StaticObstacleCREnv(gym.Env):
         if self.render_mode == "human":
             self._render_frame()
 
-        import code
-        code.interact(local=locals())
+
         return observation, info
     
     def step(self, action):
@@ -144,11 +146,14 @@ class StaticObstacleCREnv(gym.Env):
 
         # check IF AC INSIDE 
 
+
+        # This originally was _generate_conflicts
+        # this creates aircraft that are explicitely in conflict with the agent. 
         target_idx = bs.traf.id2idx(acid)
         for i in range(NUM_INTRUDERS):
-            dpsi = np.random.randint(45,315)
-            cpa = np.random.randint(0,INTRUSION_DISTANCE)
-            tlosh = np.random.randint(100,1000)
+            dpsi = np.random.randint(45,315) # Conflict angle (angle between tracks of ownship and intruder) (deg)
+            cpa = np.random.randint(0,INTRUSION_DISTANCE) #Predicted distance at closest point of approach (NM)
+            tlosh = np.random.randint(100,1000) 
             bs.traf.creconfs(acid=f'{i}',actype="A320",targetidx=target_idx,dpsi=dpsi,dcpa=cpa,tlosh=tlosh)
 
     def _generate_polygon(self, centre):
@@ -174,11 +179,11 @@ class StaticObstacleCREnv(gym.Env):
     def _generate_obstacles(self):
         self.obstacle_names = []
         self.obstacle_vertices = []
-        self._generate_waypoint(num_waypoints = NUM_OBSTACLES)
+        #self._generate_waypoint(num_waypoints = NUM_OBSTACLES)
+        obst_centre_lat, obst_centre_lon = self._generate_coordinates_centre_obstacles(num_obstacles = NUM_OBSTACLES)
 
         for i in range(NUM_OBSTACLES):
-            
-            centre_obst = (self.wpt_lat[i], self.wpt_lon[i])
+            centre_obst = (obst_centre_lat[i], obst_centre_lon[i])
             p_area, p = self._generate_polygon(centre_obst)
 
             # R = np.sqrt(POLY_AREA_RANGE[1] / np.pi)
@@ -202,24 +207,55 @@ class StaticObstacleCREnv(gym.Env):
             bs.tools.areafilter.defineArea(poly_name, 'POLY', points)
             self.obstacle_names.append(poly_name)
             self.obstacle_vertices.append(p)
-            import code
-            code.interact(local=locals())
+            # import code
+            # code.interact(local=locals())
 
-
-    def _generate_waypoint(self, acid = 'KL001', num_waypoints = NUM_WAYPOINTS):
+    # original _generate_waypoints function from horizotal_cr_env
+    def _generate_waypoint(self, acid = 'KL001'):
         self.wpt_lat = []
         self.wpt_lon = []
         self.wpt_reach = []
-        for i in range(num_waypoints):
+        for i in range(NUM_WAYPOINTS):
             wpt_dis_init = np.random.randint(WAYPOINT_DISTANCE_MIN, WAYPOINT_DISTANCE_MAX)
-            wpt_hdg_init = 0 # always generating waypoints straight ahead?
+            wpt_hdg_init = 0
 
             ac_idx = bs.traf.id2idx(acid)
 
             wpt_lat, wpt_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], wpt_dis_init, wpt_hdg_init)    
             self.wpt_lat.append(wpt_lat)
             self.wpt_lon.append(wpt_lon)
-            self.wpt_reach.append(0)
+            self.wpt_reach.append(0)        
+
+
+    # Modified _generate_waypoints function from horizotal_cr_env to avoid using a global variable for the number of obstacles. 
+    # def _generate_waypoint(self, acid = 'KL001', num_waypoints = NUM_WAYPOINTS):
+    #     self.wpt_lat = []
+    #     self.wpt_lon = []
+    #     self.wpt_reach = []
+    #     for i in range(num_waypoints):
+    #         wpt_dis_init = np.random.randint(WAYPOINT_DISTANCE_MIN, WAYPOINT_DISTANCE_MAX)
+    #         wpt_hdg_init = 0 # always generating waypoints straight ahead?
+
+    #         ac_idx = bs.traf.id2idx(acid)
+
+    #         wpt_lat, wpt_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], wpt_dis_init, wpt_hdg_init)    
+    #         self.wpt_lat.append(wpt_lat)
+    #         self.wpt_lon.append(wpt_lon)
+    #         self.wpt_reach.append(0)
+
+    def _generate_coordinates_centre_obstacles(self, acid = 'KL001', num_obstacles = NUM_OBSTACLES):
+        self.obstacle_lat = []
+        self.obstacle_lon = []
+        # self.wpt_reach = []
+        for i in range(num_obstacles):
+            obstacle_dis_from_reference = np.random.randint(OBSTACLE_DISTANCE_MIN, OBSTACLE_DISTANCE_MAX)
+            obstacle_hdg_from_reference = np.random.randint(OBSTACLE_DISTANCE_MIN, OBSTACLE_DISTANCE_MAX)
+            ac_idx = bs.traf.id2idx(acid)
+
+            obstacle_lat, obstacle_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], obstacle_dis_from_reference, obstacle_hdg_from_reference)    
+            self.obstacle_lat.append(obstacle_lat)
+            self.obstacle_lon.append(obstacle_lon)
+            # self.wpt_reach.append(0)
 
     def _get_obs(self):
         ac_idx = bs.traf.id2idx('KL001')
