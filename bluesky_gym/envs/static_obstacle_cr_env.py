@@ -34,8 +34,8 @@ NM2KM = 1.852
 ACTION_FREQUENCY = 10
 
 ## for obstacles generation
-NUM_OBSTACLES = np.random.randint(1,5)
-print(NUM_OBSTACLES)
+NUM_OBSTACLES = 2 #np.random.randint(1,5)
+NUM_OTHER_AIRCRAFT = 5
 POLY_AREA_RANGE = (50, np.random.randint(100,200)) # In NM^2
 CENTER = (51.990426702297746, 4.376124857109851) # TU Delft AE Faculty coordinates
 
@@ -101,11 +101,12 @@ class StaticObstacleCREnv(gym.Env):
 
         bs.traf.cre('KL001',actype="A320",acspd=AC_SPD)
 
-        self._generate_other_aircraft()
         self._generate_obstacles()
 
-        
+        self._generate_other_aircraft()
+
         self._generate_waypoint()
+
         observation = self._get_obs()
 
 
@@ -133,7 +134,7 @@ class StaticObstacleCREnv(gym.Env):
 
         info = self._get_info()
 
-        # bluesky reset?? bs.sim.reset()
+        # bluesky reset?? bs.sim.reset() or bs.traf.reset()
         if terminated:
             for acid in bs.traf.id:
                 idx = bs.traf.id2idx(acid)
@@ -141,20 +142,28 @@ class StaticObstacleCREnv(gym.Env):
 
         return observation, reward, terminated, False, info
 
-    def _generate_other_aircraft(self, acid = 'KL001'):
-        # for n_other_ac CRE
+    def _generate_other_aircraft(self, num_other_aircraft = NUM_OTHER_AIRCRAFT):
+        self.other_aircraft_names = []
+        for i in range(num_other_aircraft): 
+            other_aircraft_name = 'ac_' + str(i+1)
+            self.other_aircraft_names.append(other_aircraft_name)
+            inside = True
+            loop_counter = 0
+            # check if aircraft is is created inside obstacle
+            while inside:
+                loop_counter+= 1
+                bs.traf.cre(acid=other_aircraft_name,actype="A320",acspd=AC_SPD)
+                ac_idx = bs.traf.id2idx(other_aircraft_name)
+                for j in range(NUM_OBSTACLES):
 
-        # check IF AC INSIDE 
+                    # shapetemp = bs.tools.areafilter.basic_shapes[self.obstacle_names[j]]
+                    inside_temp = bs.tools.areafilter.checkInside(self.obstacle_names[j], bs.traf.lat, bs.traf.lon, bs.traf.alt)
+                    inside = inside_temp[ac_idx]
+                    # import code
+                    # code.interact(local = locals())
+                if loop_counter > 1000:
+                    raise Exception("No aircraft can be generated outside the obstacles. Check the parameters of the obstacles in the definition of the scenario.")
 
-
-        # This originally was _generate_conflicts
-        # this creates aircraft that are explicitely in conflict with the agent. 
-        target_idx = bs.traf.id2idx(acid)
-        for i in range(NUM_INTRUDERS):
-            dpsi = np.random.randint(45,315) # Conflict angle (angle between tracks of ownship and intruder) (deg)
-            cpa = np.random.randint(0,INTRUSION_DISTANCE) #Predicted distance at closest point of approach (NM)
-            tlosh = np.random.randint(100,1000) 
-            bs.traf.creconfs(acid=f'{i}',actype="A320",targetidx=target_idx,dpsi=dpsi,dcpa=cpa,tlosh=tlosh)
 
     def _generate_polygon(self, centre):
         
@@ -231,7 +240,6 @@ class StaticObstacleCREnv(gym.Env):
     def _generate_coordinates_centre_obstacles(self, acid = 'KL001', num_obstacles = NUM_OBSTACLES):
         self.obstacle_lat = []
         self.obstacle_lon = []
-        # self.wpt_reach = []
         
         for i in range(num_obstacles):
             obstacle_dis_from_reference = np.random.randint(OBSTACLE_DISTANCE_MIN, OBSTACLE_DISTANCE_MAX)
@@ -241,10 +249,6 @@ class StaticObstacleCREnv(gym.Env):
             obstacle_lat, obstacle_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], obstacle_dis_from_reference, obstacle_hdg_from_reference)    
             self.obstacle_lat.append(obstacle_lat)
             self.obstacle_lon.append(obstacle_lon)
-            print(num_obstacles, i)
-            # self.wpt_reach.append(0)
-        import code
-        code.interact(local=locals())
         
     def _get_obs(self):
         ac_idx = bs.traf.id2idx('KL001')

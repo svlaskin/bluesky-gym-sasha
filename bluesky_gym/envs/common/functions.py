@@ -22,13 +22,13 @@ def bound_angle_positive_negative_180(angle_deg: float) -> float:
 
 def get_point_at_distance(lat1, lon1, d, bearing, R=6371):
     """
-    lat: initial latitude, in degrees
-    lon: initial longitude, in degrees
-    d: target distance from initial, in km
+    lat: latitude of the reference point, in degrees
+    lon: longitude of the referemce point, in degrees
+    d: target distance from the reference point, in km
     bearing: (true) heading, in degrees
     R: optional radius of sphere, defaults to mean radius of earth
 
-    Returns new lat/lon coordinate {d}km from initial, in degrees
+    Returns new lat/lon coordinate {d}km from the reference point, in degrees
     """
     lat1 = np.radians(lat1)
     lon1 = np.radians(lon1)
