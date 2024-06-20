@@ -4,6 +4,8 @@ import pygame
 import bluesky as bs
 from bluesky_gym.envs.common.screen_dummy import ScreenDummy
 import bluesky_gym.envs.common.functions as fn
+import bluesky_gym.envs.common.deterministic_path_planning as path_plan
+from bluesky.tools.aero import kts
 
 import gymnasium as gym
 from gymnasium import spaces
@@ -16,7 +18,6 @@ AC_INTRUSION_PENALTY = -1
 RESTRICTED_AREA_INTRUSION_PENALTY = -1
 
 NUM_INTRUDERS = 5
-NUM_WAYPOINTS = 1
 INTRUSION_DISTANCE = 5 # NM
 
 WAYPOINT_DISTANCE_MIN = 100 # KM
@@ -34,8 +35,12 @@ NM2KM = 1.852
 ACTION_FREQUENCY = 10
 
 ## for obstacles generation
-NUM_OBSTACLES = 2 #np.random.randint(1,5)
+NUM_OBSTACLES = 10 #np.random.randint(1,5)
 NUM_OTHER_AIRCRAFT = 5
+
+## number of waypoints coincides with the number of destinations for each aircraft (actor and all other aircraft)
+NUM_WAYPOINTS = NUM_OTHER_AIRCRAFT + 1
+
 POLY_AREA_RANGE = (50, np.random.randint(100,200)) # In NM^2
 CENTER = (51.990426702297746, 4.376124857109851) # TU Delft AE Faculty coordinates
 
@@ -107,6 +112,8 @@ class StaticObstacleCREnv(gym.Env):
 
         self._generate_waypoint()
 
+        self._path_planning()
+
         observation = self._get_obs()
 
 
@@ -164,7 +171,6 @@ class StaticObstacleCREnv(gym.Env):
                 if loop_counter > 1000:
                     raise Exception("No aircraft can be generated outside the obstacles. Check the parameters of the obstacles in the definition of the scenario.")
 
-
     def _generate_polygon(self, centre):
         
         R = np.sqrt(POLY_AREA_RANGE[1] / np.pi)
@@ -200,9 +206,14 @@ class StaticObstacleCREnv(gym.Env):
 
             bs.tools.areafilter.defineArea(poly_name, 'POLY', points)
             self.obstacle_names.append(poly_name)
-            self.obstacle_vertices.append(p)
-            # import code
-            # code.interact(local=locals())
+
+            obstacle_vertices_coordinates = []
+            for k in range(0,len(points),2):
+                obstacle_vertices_coordinates.append([points[k], points[k+1]])
+            
+            self.obstacle_vertices.append(obstacle_vertices_coordinates)
+        # import code
+        # code.interact(local=locals())
 
     # original _generate_waypoints function from horizotal_cr_env
     def _generate_waypoint(self, acid = 'KL001'):
@@ -210,15 +221,39 @@ class StaticObstacleCREnv(gym.Env):
         self.wpt_lon = []
         self.wpt_reach = []
         for i in range(NUM_WAYPOINTS):
-            wpt_dis_init = np.random.randint(WAYPOINT_DISTANCE_MIN, WAYPOINT_DISTANCE_MAX)
-            wpt_hdg_init = 0
+            
+            if i == 0:
+                ac_idx = bs.traf.id2idx(acid)
+            else:
+                ac_idx = bs.traf.id2idx(self.other_aircraft_names[i-1])
+            
 
-            ac_idx = bs.traf.id2idx(acid)
+            inside = True
+            loop_counter = 0
+            while inside:
+                loop_counter+= 1
+                wpt_dis_init = np.random.randint(WAYPOINT_DISTANCE_MIN, WAYPOINT_DISTANCE_MAX)
+                wpt_hdg_init = np.random.randint(0, 360)
+                wpt_lat, wpt_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], wpt_dis_init, wpt_hdg_init)
 
-            wpt_lat, wpt_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], wpt_dis_init, wpt_hdg_init)    
+                # working around the bug in bluesky that gives a ValueError when checkInside is used to check a single element
+                wpt_lat_array = np.array([wpt_lat, wpt_lat])
+                wpt_lon_array = np.array([wpt_lon, wpt_lon])
+                ac_idx_alt_array = np.array([bs.traf.alt[ac_idx], bs.traf.alt[ac_idx]])
+                for j in range(NUM_OBSTACLES):
+
+                    # shapetemp = bs.tools.areafilter.basic_shapes[self.obstacle_names[j]]
+
+                    inside_temp = bs.tools.areafilter.checkInside(self.obstacle_names[j], wpt_lat_array, wpt_lon_array, ac_idx_alt_array)
+                    inside = inside_temp[0]
+                    # import code
+                    # code.interact(local = locals())
+                if loop_counter > 1000:
+                    raise Exception("No aircraft can be generated outside the obstacles. Check the parameters of the obstacles in the definition of the scenario.")
+
             self.wpt_lat.append(wpt_lat)
             self.wpt_lon.append(wpt_lon)
-            self.wpt_reach.append(0)        
+            self.wpt_reach.append(0)
 
 
     # Modified _generate_waypoints function from horizotal_cr_env to avoid using a global variable for the number of obstacles. 
@@ -249,6 +284,17 @@ class StaticObstacleCREnv(gym.Env):
             obstacle_lat, obstacle_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], obstacle_dis_from_reference, obstacle_hdg_from_reference)    
             self.obstacle_lat.append(obstacle_lat)
             self.obstacle_lon.append(obstacle_lon)
+
+
+    def _path_planning(self, num_other_aircraft = NUM_OTHER_AIRCRAFT):
+        self.planned_path_other_aircraft = []
+
+        for i in range(num_other_aircraft): 
+            ac_idx = bs.traf.id2idx(self.other_aircraft_names[i])
+
+            planned_path_other_aircraft = path_plan.det_path_planning(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.alt[ac_idx], bs.traf.tas[ac_idx]/kts, self.wpt_lat[i+1], self.wpt_lon[i+1], self.obstacle_vertices)
+            
+            self.planned_path_other_aircraft.append(planned_path_other_aircraft)
         
     def _get_obs(self):
         ac_idx = bs.traf.id2idx('KL001')
