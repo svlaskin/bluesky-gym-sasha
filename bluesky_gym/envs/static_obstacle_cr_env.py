@@ -202,6 +202,7 @@ class StaticObstacleCREnv(gym.Env):
             p_area, p = self._generate_polygon(centre_obst)
             
             points = [coord for point in p for coord in point] # Flatten the list of points
+
             poly_name = 'restricted_area_' + str(i+1)
 
             bs.tools.areafilter.defineArea(poly_name, 'POLY', points)
@@ -212,8 +213,7 @@ class StaticObstacleCREnv(gym.Env):
                 obstacle_vertices_coordinates.append([points[k], points[k+1]])
             
             self.obstacle_vertices.append(obstacle_vertices_coordinates)
-        # import code
-        # code.interact(local=locals())
+
 
     # original _generate_waypoints function from horizotal_cr_env
     def _generate_waypoint(self, acid = 'KL001'):
@@ -293,7 +293,7 @@ class StaticObstacleCREnv(gym.Env):
             ac_idx = bs.traf.id2idx(self.other_aircraft_names[i])
 
             planned_path_other_aircraft = path_plan.det_path_planning(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.alt[ac_idx], bs.traf.tas[ac_idx]/kts, self.wpt_lat[i+1], self.wpt_lon[i+1], self.obstacle_vertices)
-            
+
             self.planned_path_other_aircraft.append(planned_path_other_aircraft)
         
     def _get_obs(self):
