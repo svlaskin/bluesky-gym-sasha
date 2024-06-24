@@ -19,3 +19,9 @@ def register_envs():
         entry_point="bluesky_gym.envs.horizontal_cr_env:HorizontalCREnv",
         max_episode_steps=300,
     )
+
+    register(
+        id="VerticalCREnv-v0",
+        entry_point="bluesky_gym.envs.vertical_cr_env:VerticalCREnv",
+        max_episode_steps=300,
+    )
