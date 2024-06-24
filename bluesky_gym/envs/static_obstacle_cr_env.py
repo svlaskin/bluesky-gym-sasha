@@ -291,9 +291,7 @@ class StaticObstacleCREnv(gym.Env):
 
         for i in range(num_other_aircraft): 
             ac_idx = bs.traf.id2idx(self.other_aircraft_names[i])
-
             planned_path_other_aircraft = path_plan.det_path_planning(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.alt[ac_idx], bs.traf.tas[ac_idx]/kts, self.wpt_lat[i+1], self.wpt_lon[i+1], self.obstacle_vertices)
-
             self.planned_path_other_aircraft.append(planned_path_other_aircraft)
         
     def _get_obs(self):

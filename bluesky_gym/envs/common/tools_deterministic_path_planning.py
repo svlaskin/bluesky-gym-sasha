@@ -276,9 +276,12 @@ class Obs:
         #create code sequence to draw obstacles (with flexible number of vertices)
         codes = []
         codes.append(Path.MOVETO)
-        for j in range(1,len(self.vert)-1):
+
+        for j in range(1,len(self.vert)):
             codes.append(Path.LINETO)
-        codes.append(Path.CLOSEPOLY)
+
+        # codes.append(Path.CLOSEPOLY)
+
         #draw obstacle
         path = Path(self.vert, codes)
         ax = fig.axes[0]
@@ -287,6 +290,7 @@ class Obs:
         #label obstacle (place text somewhere near middle of obstacle)
         obsX = []
         obsY = []
+
         for i in range(len(self.vert)-1):
             obsX.append(self.vert[i][0])
             obsY.append(self.vert[i][1])

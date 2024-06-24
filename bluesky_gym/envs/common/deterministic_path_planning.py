@@ -189,8 +189,6 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
     # for all obstacles: draw and label (with a number according to order defined)
     for cur in range(len(obsDic_xy)):
         obsDic_xy[cur].plotter(fig,cur)
-        #print(obsDic_xy[cur])
-
 
     #################################################################
 
