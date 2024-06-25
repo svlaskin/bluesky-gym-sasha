@@ -87,6 +87,11 @@ class VerticalCREnv(gym.Env):
         bs.scr = ScreenDummy()
         bs.stack.stack('DT 1;FF')
 
+        # initialize values used for logging -> input in _get_info
+        self.total_reward = 0
+        self.total_intrusions = 0
+        self.final_altitude = 0
+
         """
         If human-rendering is used, `self.window` will be a reference
         to the window that we draw to. `self.clock` will be a clock that is used
@@ -199,19 +204,27 @@ class VerticalCREnv(gym.Env):
         # but that should not be used by the agent for decision making, so used for logging and debugging purposes
         # for now just have 10, because it crashed if I gave none for some reason.
         return {
-            "distance": 10
+            "total_reward": self.total_reward,
+            "total_intrusions": self.total_intrusions,
+            "final_altitude": self.final_altitude
         }
     
     def _get_reward(self):
-
-        # reward part of the function
         int_penalty = self._check_intrusion()
+        done = 0
         if self.runway_distance > 0 and self.altitude > 0:
-            return abs(self.target_alt - self.altitude) * ALT_DIF_REWARD_SCALE + int_penalty, 0
+            alt_penalty = abs(self.target_alt - self.altitude) * ALT_DIF_REWARD_SCALE
         elif self.altitude <= 0:
-            return CRASH_PENALTY + int_penalty, 1
+            alt_penalty = CRASH_PENALTY
+            self.final_altitude = -100
+            done = 1
         elif self.runway_distance <= 0:
-            return self.altitude * RWY_ALT_DIF_REWARD_SCALE + int_penalty, 1
+            alt_penalty = self.altitude * RWY_ALT_DIF_REWARD_SCALE
+            self.final_altitude = self.altitude
+            done = 1
+        reward = alt_penalty + int_penalty
+        self.total_reward += reward
+        return reward, done
 
     def _check_intrusion(self):
         ac_idx = bs.traf.id2idx('KL001')
@@ -221,6 +234,7 @@ class VerticalCREnv(gym.Env):
             _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
             vert_dis = bs.traf.alt[ac_idx] - bs.traf.alt[int_idx]
             if int_dis < INTRUSION_DISTANCE and abs(vert_dis) < VERTICAL_MARGIN:
+                self.total_intrusions += 1
                 reward += INTRUSION_PENALTY
         return reward
         
@@ -244,7 +258,11 @@ class VerticalCREnv(gym.Env):
         
         super().reset(seed=seed)
         bs.traf.reset()
-        # bs.stack.stack('DT 1;FF')
+        
+        # reset episodic logging variables
+        self.total_reward = 0
+        self.total_intrusions = 0
+        self.final_altitude = 0
 
         alt_init = np.random.randint(ALT_MIN, ALT_MAX)
         self.target_alt = alt_init + np.random.randint(-TARGET_ALT_DIF,TARGET_ALT_DIF)
