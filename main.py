@@ -4,6 +4,7 @@ This file trains a model using the Descent-V0 example environment
 
 import gymnasium as gym
 from stable_baselines3 import PPO
+
 import numpy as np
 
 import bluesky_gym
@@ -11,8 +12,19 @@ import bluesky_gym.envs
 
 bluesky_gym.register_envs()
 
-TRAIN = False
+
+
+# Define the log directory
+log_dir = './logs/'
+os.makedirs(log_dir, exist_ok=True)
+
+
+TRAIN = True
 EVAL_EPISODES = 10
+
+# Create the CSV logger callback
+csv_logger_callback = CSVLoggerCallback(log_dir)
+
 
 if __name__ == "__main__":
     # Create the environment
@@ -24,7 +36,7 @@ if __name__ == "__main__":
 
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(12e4))
+        model.learn(total_timesteps=2048, callback=csv_logger_callback)
         model.save("models/DescentEnv-v0_ppo/model")
         del model
     
