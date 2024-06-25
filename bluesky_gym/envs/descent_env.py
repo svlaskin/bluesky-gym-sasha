@@ -80,6 +80,9 @@ class DescentEnv(gym.Env):
         bs.scr = ScreenDummy()
         bs.stack.stack('DT 1;FF')
 
+        # initialize values used for logging -> input in _get_info
+        self.total_reward = 0
+
         """
         If human-rendering is used, `self.window` will be a reference
         to the window that we draw to. `self.clock` will be a clock that is used
@@ -126,18 +129,24 @@ class DescentEnv(gym.Env):
         # but that should not be used by the agent for decision making, so used for logging and debugging purposes
         # for now just have 10, because it crashed if I gave none for some reason.
         return {
-            "distance": 10
+            "total_reward": self.total_reward,
         }
     
     def _get_reward(self):
 
         # reward part of the function
         if self.runway_distance > 0 and self.altitude > 0:
-            return abs(self.target_alt - self.altitude) * ALT_DIF_REWARD_SCALE, 0
+            reward = abs(self.target_alt - self.altitude) * ALT_DIF_REWARD_SCALE
+            self.total_reward += reward
+            return reward, 0
         elif self.altitude <= 0:
-            return CRASH_PENALTY, 1
+            reward = CRASH_PENALTY
+            self.total_reward += reward
+            return reward, 1
         elif self.runway_distance <= 0:
-            return self.altitude * RWY_ALT_DIF_REWARD_SCALE, 1
+            reward = self.altitude * RWY_ALT_DIF_REWARD_SCALE
+            self.total_reward += reward
+            return reward, 1
         
     def _get_action(self,action):
         # Transform action to the meters per second
@@ -158,6 +167,9 @@ class DescentEnv(gym.Env):
     def reset(self, seed=None, options=None):
         
         super().reset(seed=seed)
+        
+        # reset episodic logging variables
+        self.total_reward = 0
 
         alt_init = np.random.randint(ALT_MIN, ALT_MAX)
         self.target_alt = alt_init + np.random.randint(-TARGET_ALT_DIF,TARGET_ALT_DIF)
