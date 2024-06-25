@@ -287,11 +287,40 @@ class StaticObstacleCREnv(gym.Env):
 
 
     def _path_planning(self, num_other_aircraft = NUM_OTHER_AIRCRAFT):
+        import pickle
+
+        # obj0, obj1, obj2 are created here...
+
+        # Saving the objects:
+        # with open('objs.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
+        #     obj0 = self.other_aircraft_names
+        #     obj1 = bs.traf.lat
+        #     obj2 = bs.traf.lon
+        #     obj3 = bs.traf.alt
+        #     obj4 = bs.traf.tas
+        #     obj5 = self.wpt_lat
+        #     obj6 = self.wpt_lon
+        #     obj7 = self.obstacle_vertices
+        #     pickle.dump([obj0, obj1, obj2, obj3, obj4, obj5, obj6, obj7], f)
+
+        # Getting back the objects:
+        with open('objs-working.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
+            obj0, obj1, obj2, obj3, obj4, obj5, obj6, obj7 = pickle.load(f)
+
+        
+        # # Getting back the objects:
+        # with open('objs.pkl') as f:  # Python 3: open(..., 'rb')
+        # obj0, obj1, obj2 = pickle.load(f)
         self.planned_path_other_aircraft = []
 
         for i in range(num_other_aircraft): 
-            ac_idx = bs.traf.id2idx(self.other_aircraft_names[i])
-            planned_path_other_aircraft = path_plan.det_path_planning(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.alt[ac_idx], bs.traf.tas[ac_idx]/kts, self.wpt_lat[i+1], self.wpt_lon[i+1], self.obstacle_vertices)
+            # ac_idx = bs.traf.id2idx(self.other_aircraft_names[i])
+            # planned_path_other_aircraft = path_plan.det_path_planning(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.alt[ac_idx], bs.traf.tas[ac_idx]/kts, self.wpt_lat[i+1], self.wpt_lon[i+1], self.obstacle_vertices)
+            # i = 2
+            ac_idx = bs.traf.id2idx(obj0[i])
+            planned_path_other_aircraft = path_plan.det_path_planning(obj1[ac_idx], obj2[ac_idx], obj3[ac_idx], obj4[ac_idx]/kts, obj5[i+1], obj6[i+1], obj7)
+            # import code
+            # code.interact(local= locals())
             self.planned_path_other_aircraft.append(planned_path_other_aircraft)
         
     def _get_obs(self):

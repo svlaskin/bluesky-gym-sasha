@@ -12,7 +12,31 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
 from bluesky_gym.envs.common.wind_field_deterministic_path_planning import Windfield
+import code
 
+def black(text):
+    print('\033[30m', text, '\033[0m', sep='')
+
+def red(text):
+    print('\033[31m', text, '\033[0m', sep='')
+
+def green(text):
+    print('\033[32m', text, '\033[0m', sep='')
+
+def yellow(text):
+    print('\033[33m', text, '\033[0m', sep='')
+
+def blue(text):
+    print('\033[34m', text, '\033[0m', sep='')
+
+def magenta(text):
+    print('\033[35m', text, '\033[0m', sep='')
+
+def cyan(text):
+    print('\033[36m', text, '\033[0m', sep='')
+
+def gray(text):
+    print('\033[90m', text, '\033[0m', sep='')
 
 # Define windfield
 
@@ -99,23 +123,36 @@ class Obs:
         for i in range(len(routedef.waypoints)-1):                     # iterate through all route segments
             a = Pos((xwpts[i],ywpts[i]))
             b = Pos((xwpts[i+1],ywpts[i+1]))
-            for j in range(len(self.vert)-1):                         # iterate through obstacle segments
-                c = Pos((self.vert[j][0],self.vert[j][1]))
-                d = Pos((self.vert[j+1][0],self.vert[j+1][1]))  
-                if notcolinear(a,b,c,d) and intersect(a,b,c,d):                  
+    
+            for j in range(len(self.vert)):                         # iterate through obstacle segments
+                if j == (len(self.vert)-1): 
+                    c = Pos((self.vert[j][0],self.vert[j][1]))
+                    d = Pos((self.vert[0][0],self.vert[0][1]))
+                else:
+                    c = Pos((self.vert[j][0],self.vert[j][1]))
+                    d = Pos((self.vert[j+1][0],self.vert[j+1][1]))
+                
+                if notcolinear(a,b,c,d) and intersect(a,b,c,d):
                     intersectiontab.append([i,j])                     # i corresponds to route segment and j corresponds to obstacle segment
+
         return intersectiontab
     def resort(self,segList,parent,intersectTab):
         # vertices of first segment in obstacle segment list:
         ver1 = self.vert[segList[0]]
-        ver2 = self.vert[segList[0]+1]
+        if len(self.vert) == (segList[0]+1):
+            ver2 = self.vert[0]
+        else:
+            ver2 = self.vert[segList[0]+1]
         # vertices of route segment:
         xwpts,ywpts = list(zip(*parent.waypoints))
         rou1 = (xwpts[intersectTab[0][0]],ywpts[intersectTab[0][0]])
         rou2 = (xwpts[intersectTab[0][0]+1],ywpts[intersectTab[0][0]+1])
         # vertices of last segment in obstacle segment list:        
         ver3 = self.vert[segList[-1]]
-        ver4 = self.vert[segList[-1]+1]
+        if len(self.vert) == (segList[-1]+1):
+            ver4 = self.vert[0]
+        else:
+            ver4 = self.vert[segList[-1]+1]
         # use first vertex of route segment as reference point
         refpt = Pos((rou1))
         # calculate distances between reference point and points of intersection        
@@ -125,7 +162,7 @@ class Obs:
         # than that of last obstacle segment, flip the order of obstacle segment list
         if check1.length() > check2.length():
             segList = list(reversed(segList))
-        return segList   
+        return segList
     def leftalt(self,segList):                  
         altWptL = []                                               # waypoints along left alternative route
         # (C) populate list of left alternative waypoints (make use of the fact that obstacle vertices are defined in clockwise order)
@@ -135,9 +172,14 @@ class Obs:
                 if self.vert[segList[i]] not in altWptL:
                     altWptL.append(self.vert[segList[i]])
             else:
-                if self.vert[segList[i]+1] not in altWptL:                
-                # append the larger of the two vertices to the list of left alternative waypoints
-                    altWptL.append(self.vert[segList[i]+1])
+                if len(self.vert) == (self.vert[segList[i]+1]):
+                    if self.vert[0] not in altWptL:                
+                        # append the larger of the two vertices to the list of left alternative waypoints
+                        altWptL.append(self.vert[0])
+                    else:
+                        if self.vert[segList[i]+1] not in altWptL:                
+                            # append the larger of the two vertices to the list of left alternative waypoints
+                            altWptL.append(self.vert[segList[i]+1])
         # (D) add additional obstacle vertices to list of left alternative waypoints, if necessary
         # create empty lists:
         indexLobs = []                                     # indices of obstacle vertices in altWptL
@@ -194,9 +236,14 @@ class Obs:
             b = destination
           #  b = Pos((destination[0],destination[1]))
             intersection = []
-            for j in range(len(self.vert)-1):
-                c = Pos((self.vert[j][0],self.vert[j][1]))
-                d = Pos((self.vert[j+1][0],self.vert[j+1][1]))
+            for j in range(len(self.vert)):
+                if j == (len(self.vert)-1): 
+                    c = Pos((self.vert[j][0],self.vert[j][1]))
+                    d = Pos((self.vert[0][0],self.vert[0][1]))
+                else:
+                    c = Pos((self.vert[j][0],self.vert[j][1]))
+                    d = Pos((self.vert[j+1][0],self.vert[j+1][1]))
+                
                 if intersect(a,b,c,d) and notcolinear(a,b,c,d):
                     intersection.append(j)
             if not len(intersection):
@@ -218,10 +265,11 @@ class Obs:
         altWptR = []                                               # waypoints along left alternative route
         # (C) populate list of right alternative waypoints (make use of the fact that obstacle vertices are defined in clockwise order)
         for i in range(len(segList)):
-                # make exception for last alternative waypoint to prevent "over-rotation" around obstacle
+
+            # make exception for last alternative waypoint to prevent "over-rotation" around obstacle
             if i > 0 and  i == len(segList)-1:
-                if self.vert[segList[i]+1] not in altWptR:
-                    altWptR.append(self.vert[segList[i]+1])
+                if self.vert[0] not in altWptR:
+                    altWptR.append(self.vert[0])
             else:
                 if self.vert[segList[i]] not in altWptR:
                 # append the smaller of the two vertices to the list of right alternative waypoints                   
@@ -571,7 +619,7 @@ def intersect(A,B,C,D):
     return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
     
 def notcolinear(A,B,C,D):
-    if (C.y-B.y)*(A.x-B.x) - (A.y-B.y)*(C.x-B.x) == 0 :
+    if (C.y-B.y)*(A.x-B.x) - (A.y-B.y)*(C.x-B.x) == 0:
         return False
     elif (D.y-A.y)*(B.x-A.x) - (B.y-A.y)*(D.x-A.x) == 0:
         return False
