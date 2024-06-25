@@ -172,14 +172,14 @@ class Obs:
                 if self.vert[segList[i]] not in altWptL:
                     altWptL.append(self.vert[segList[i]])
             else:
-                if len(self.vert) == (self.vert[segList[i]+1]):
+                if len(self.vert) == (segList[i]+1):
                     if self.vert[0] not in altWptL:                
                         # append the larger of the two vertices to the list of left alternative waypoints
                         altWptL.append(self.vert[0])
-                    else:
-                        if self.vert[segList[i]+1] not in altWptL:                
-                            # append the larger of the two vertices to the list of left alternative waypoints
-                            altWptL.append(self.vert[segList[i]+1])
+                else:
+                    if self.vert[segList[i]+1] not in altWptL:                
+                        # append the larger of the two vertices to the list of left alternative waypoints
+                        altWptL.append(self.vert[segList[i]+1])
         # (D) add additional obstacle vertices to list of left alternative waypoints, if necessary
         # create empty lists:
         indexLobs = []                                     # indices of obstacle vertices in altWptL
@@ -268,8 +268,13 @@ class Obs:
 
             # make exception for last alternative waypoint to prevent "over-rotation" around obstacle
             if i > 0 and  i == len(segList)-1:
-                if self.vert[0] not in altWptR:
-                    altWptR.append(self.vert[0])
+                if len(self.vert) == (segList[i]+1):
+                    if self.vert[0] not in altWptR:
+                        altWptR.append(self.vert[0])
+                else:
+                    if self.vert[segList[i]+1] not in altWptR:
+                        altWptR.append(self.vert[segList[i]+1])
+
             else:
                 if self.vert[segList[i]] not in altWptR:
                 # append the smaller of the two vertices to the list of right alternative waypoints                   
@@ -452,9 +457,12 @@ class Route:
                 a = Pos((xwpts[i],ywpts[i]))
                 b = Pos((xwpts[i+2],ywpts[i+2]))
                 for index in range(len(obstacles)):            
-                    for j in range(len(obstacles[index].vert)-1):                         # iterate through obstacle segments
+                    for j in range(len(obstacles[index].vert)):                         # iterate through obstacle segments
                         c = Pos((obstacles[index].vert[j][0],obstacles[index].vert[j][1]))
-                        d = Pos((obstacles[index].vert[j+1][0],obstacles[index].vert[j+1][1]))  
+                        if j == (len(obstacles[index].vert)-1): 
+                            d = Pos((obstacles[index].vert[0][0],obstacles[index].vert[0][1]))  
+                        else:
+                            d = Pos((obstacles[index].vert[j+1][0],obstacles[index].vert[j+1][1]))  
                         if notcolinear(a,b,c,d) and intersect(a,b,c,d):       # if notcolinear(a,b,c,d) and intersect(a,b,c,d):
                             intersectiontab.append(j)                            # i corresponds to route segment and j corresponds to obstacle segment                
                     if not len(intersectiontab):

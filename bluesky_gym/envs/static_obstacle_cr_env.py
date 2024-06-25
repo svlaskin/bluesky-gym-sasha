@@ -10,6 +10,31 @@ from bluesky.tools.aero import kts
 import gymnasium as gym
 from gymnasium import spaces
 
+
+def black(text):
+    print('\033[30m', text, '\033[0m', sep='')
+
+def red(text):
+    print('\033[31m', text, '\033[0m', sep='')
+
+def green(text):
+    print('\033[32m', text, '\033[0m', sep='')
+
+def yellow(text):
+    print('\033[33m', text, '\033[0m', sep='')
+
+def blue(text):
+    print('\033[34m', text, '\033[0m', sep='')
+
+def magenta(text):
+    print('\033[35m', text, '\033[0m', sep='')
+
+def cyan(text):
+    print('\033[36m', text, '\033[0m', sep='')
+
+def gray(text):
+    print('\033[90m', text, '\033[0m', sep='')
+
 DISTANCE_MARGIN = 5 # km
 REACH_REWARD = 1 # reach set waypoint
 
@@ -304,23 +329,22 @@ class StaticObstacleCREnv(gym.Env):
         #     pickle.dump([obj0, obj1, obj2, obj3, obj4, obj5, obj6, obj7], f)
 
         # Getting back the objects:
-        with open('objs-working.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
-            obj0, obj1, obj2, obj3, obj4, obj5, obj6, obj7 = pickle.load(f)
+        # with open('objs-bug.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
+        #     obj0, obj1, obj2, obj3, obj4, obj5, obj6, obj7 = pickle.load(f)
 
         
-        # # Getting back the objects:
-        # with open('objs.pkl') as f:  # Python 3: open(..., 'rb')
-        # obj0, obj1, obj2 = pickle.load(f)
         self.planned_path_other_aircraft = []
 
         for i in range(num_other_aircraft): 
-            # ac_idx = bs.traf.id2idx(self.other_aircraft_names[i])
-            # planned_path_other_aircraft = path_plan.det_path_planning(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.alt[ac_idx], bs.traf.tas[ac_idx]/kts, self.wpt_lat[i+1], self.wpt_lon[i+1], self.obstacle_vertices)
-            # i = 2
-            ac_idx = bs.traf.id2idx(obj0[i])
-            planned_path_other_aircraft = path_plan.det_path_planning(obj1[ac_idx], obj2[ac_idx], obj3[ac_idx], obj4[ac_idx]/kts, obj5[i+1], obj6[i+1], obj7)
+            ac_idx = bs.traf.id2idx(self.other_aircraft_names[i])
+            planned_path_other_aircraft = path_plan.det_path_planning(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.alt[ac_idx], bs.traf.tas[ac_idx]/kts, self.wpt_lat[i+1], self.wpt_lon[i+1], self.obstacle_vertices)
+            # i = 4
+            # ac_idx = bs.traf.id2idx(obj0[i])
+            # planned_path_other_aircraft = path_plan.det_path_planning(obj1[ac_idx], obj2[ac_idx], obj3[ac_idx], obj4[ac_idx]/kts, obj5[i+1], obj6[i+1], obj7)
             # import code
             # code.interact(local= locals())
+            # red(obj5[i+1])
+            # green(obj5[i+1])
             self.planned_path_other_aircraft.append(planned_path_other_aircraft)
         
     def _get_obs(self):
