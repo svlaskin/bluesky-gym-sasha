@@ -119,6 +119,8 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
     # While processing obstacle vertices in for loops, also define
     # boundaries of windfield
     orig,dest = [lat0, lon0],[latdest,londest]
+    # print('dest')
+    # red(dest)
     ymin = min(orig[0],dest[0])
     ymax = max(orig[0],dest[0])
     xmin = min(orig[1],dest[1])
@@ -140,7 +142,7 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
 
     # create obstacle dictionary (key is obstacle index)
     obsDic_xy = {i: obstacle_list_xy[i] for i in range(len(obstacle_list_xy))}
-    print(obsDic_xy)
+    # print(obsDic_xy)
 
     # define as instance of the obstacle class
     for i in range(len(obsDic_xy)):
@@ -166,6 +168,7 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
 
     # generate direct route using origin and destination info
     distance, heading, wypts = parse(origin,destination)
+    # yellow(wypts)
     nominaltime = distance/TAS
     directrt = Route(origin,destination,TAS,wypts,distance,nominaltime,0.0)
 
@@ -254,8 +257,8 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
             parentX,parentY = list(zip(*parent.waypoints))
             plt.plot(parentX,parentY,'--')
 
-        print('parentX', parentX)
-        print('parentY', parentY)
+        # print('parentX', parentX)
+        # print('parentY', parentY)
         # if there is an incumbent... check if route length (or time) is greater than incumbent length (or time)
         if incflag==1:
             if optimizationpriority == 0:
@@ -284,7 +287,7 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
         for obstacle in range(len(obsDic_xy)):             # loop through all obstacles
             # tabulate intersections between route segments and obstacle segments
             allintersections.append(obsDic_xy[obstacle].intersectroute(parent))
-        black(allintersections)
+        # black(allintersections)
         # if there are intersections, define branching obstacle as first encountered
         if len([_f for _f in allintersections if _f]):
             # find index of obstacle in obsDic that will be encountered first
@@ -307,7 +310,7 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
             
 
             first_seg = [f for f in firstseg if isinstance(f, int)]
-            red(firstseg)
+            # red(firstseg)
             if firstseg.count(min(first_seg)) > 1:
 
                 indices = [i for i, x in enumerate(firstseg) if x == min(first_seg)]
@@ -352,11 +355,10 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
             segList = []                                           # empty list
             for index in range(len(intersectTab)):
                 segList.append(intersectTab[index][1])             # segList contains the smaller of the two obstacle indices defining the segment
-                yellow(segList[-1])
-            green(segList)
+            #     yellow(segList[-1])
+            # green(segList)
             # (B) re-sort obstacle segment list here, in order of first-encountered       
             segList = obsDic_xy[branch].resort(segList,parent,intersectTab)
-            cyan(segList)
 
             # (C) populate lists of left and right alternative waypoints
             # (make use of the fact that obstacle vertices are defined in clockwise order)
@@ -364,31 +366,23 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
             altWptL = obsDic_xy[branch].leftalt(segList)
             altWptR = obsDic_xy[branch].rightalt(segList)
 
-            gray(altWptL)
-            magenta(altWptR)
     #        altWptLclean = altWptL
     #        altWptRclean = altWptR
             altWptLclean = obsDic_xy[branch].extupdate(altWptL,destination)
             altWptRclean = obsDic_xy[branch].extupdate(altWptR,destination)
             
-            blue(altWptLclean)
-            print(altWptRclean)
 
             # (D) CREATE TRIAL ROUTES WITH PREVIOUSLY CALCULATED ALTERNATIVE WAYPOINTS
             # check which route segment contained the first intersection, insert alternative waypoints       
             altWptIndex = intersectTab[0][0] + 1                    # note: this works because no obstacle will span more than one route segment
-            
-            red(altWptLclean)
 
             # ROUTE L
             routeL = Route(origin,destination,TAS,parent.waypoints,parent.distance,parent.time,parent.deviation)
             routeL.insert(altWptIndex,altWptLclean)
-            green(routeL)
+
             # backward cleanup
             lstpt = altWptIndex+len(altWptLclean)                  # define the last waypoint index to consider (exit wypt from branching obstacle)
-            yellow(routeL)
             routeL.backwardcleanup(obsDic_xy,lstpt)
-            blue(routeL)
 
             if windsOn == 1:
                 windsaloftL = callWinds(wind,routeL) 
@@ -396,7 +390,7 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
                 windsaloftL = [np.zeros(len(routeL.waypoints)),np.zeros(len(routeL.waypoints))]
 
             routeL.deviation = routeL.deviationcheck(parent,optimizationpriority,windsaloftL)
-            magenta(routeL)
+
             # should consider somehow adding the alt waypoints (and doing any other necessary changes, i.e. backward cleanup)
             # and THEN declaring it's a route (and thus adding it to active waypoint list)
             # need to do this as well for the routeR and directrt
