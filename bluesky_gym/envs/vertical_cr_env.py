@@ -46,6 +46,11 @@ class VerticalCREnv(gym.Env):
     """ 
     Vertical CR environment, aircraft needs to descend to the runway while avoiding intruders.
     Fixed limit on the resolution manouevres. 
+
+    TODO:
+    * Look at changing action space to vertical speed and altitude(change)
+    * Change intruder generation logic -> more focused around descent area and target altitude
+    * Improve visualization
     """
 
     # information regarding the possible rendering modes of the environment

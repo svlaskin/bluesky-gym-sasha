@@ -82,6 +82,7 @@ class DescentEnv(gym.Env):
 
         # initialize values used for logging -> input in _get_info
         self.total_reward = 0
+        self.final_altitude = 0
 
         """
         If human-rendering is used, `self.window` will be a reference
@@ -130,6 +131,7 @@ class DescentEnv(gym.Env):
         # for now just have 10, because it crashed if I gave none for some reason.
         return {
             "total_reward": self.total_reward,
+            "final_altitude": self.final_altitude
         }
     
     def _get_reward(self):
@@ -141,10 +143,12 @@ class DescentEnv(gym.Env):
             return reward, 0
         elif self.altitude <= 0:
             reward = CRASH_PENALTY
+            self.final_altitude = -100
             self.total_reward += reward
             return reward, 1
         elif self.runway_distance <= 0:
             reward = self.altitude * RWY_ALT_DIF_REWARD_SCALE
+            self.final_altitude = self.altitude
             self.total_reward += reward
             return reward, 1
         
@@ -170,6 +174,7 @@ class DescentEnv(gym.Env):
         
         # reset episodic logging variables
         self.total_reward = 0
+        self.final_altitude = 0
 
         alt_init = np.random.randint(ALT_MIN, ALT_MAX)
         self.target_alt = alt_init + np.random.randint(-TARGET_ALT_DIF,TARGET_ALT_DIF)
