@@ -25,7 +25,6 @@ Uses tools from "mytools.py" and "windfield.py".
 
 import matplotlib.pyplot as plt
 import numpy as np
-import code
 from bluesky_gym.envs.common.tools_deterministic_path_planning import Pos,LatLon2XY,processread,Obs,parse,obsReader,\
 Route,wyptannotate,callWinds,intersectionpt,specifywindfield
 
@@ -36,31 +35,6 @@ Route,wyptannotate,callWinds,intersectionpt,specifywindfield
 
 # from mytoolsFINAL 
 # from openfile import filedialog
-
-
-def black(text):
-    print('\033[30m', text, '\033[0m', sep='')
-
-def red(text):
-    print('\033[31m', text, '\033[0m', sep='')
-
-def green(text):
-    print('\033[32m', text, '\033[0m', sep='')
-
-def yellow(text):
-    print('\033[33m', text, '\033[0m', sep='')
-
-def blue(text):
-    print('\033[34m', text, '\033[0m', sep='')
-
-def magenta(text):
-    print('\033[35m', text, '\033[0m', sep='')
-
-def cyan(text):
-    print('\033[36m', text, '\033[0m', sep='')
-
-def gray(text):
-    print('\033[90m', text, '\033[0m', sep='')
 
 #INPUT SETTINGS TO DEFINE
 
@@ -78,7 +52,6 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
     # Define optimization strategy
     optimizationpriority    = 0       # type 0 for distance, 1 for time
     #################################################################
-
 
     #PLOTTING OPTIONS
 
@@ -119,8 +92,6 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
     # While processing obstacle vertices in for loops, also define
     # boundaries of windfield
     orig,dest = [lat0, lon0],[latdest,londest]
-    # print('dest')
-    # red(dest)
     ymin = min(orig[0],dest[0])
     ymax = max(orig[0],dest[0])
     xmin = min(orig[1],dest[1])
@@ -168,7 +139,6 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
 
     # generate direct route using origin and destination info
     distance, heading, wypts = parse(origin,destination)
-    # yellow(wypts)
     nominaltime = distance/TAS
     directrt = Route(origin,destination,TAS,wypts,distance,nominaltime,0.0)
 
@@ -314,17 +284,14 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
             if firstseg.count(min(first_seg)) > 1:
 
                 indices = [i for i, x in enumerate(firstseg) if x == min(first_seg)]
-                
                 distlist = []
                 options = []
                 refpt = Pos(parent.waypoints[min(first_seg)])
-                
                 routpt1 = parent.waypoints[min(first_seg)]
                 routpt2 = parent.waypoints[min(first_seg)+1]
                 
                 for i in range(len(indices)):
                     for j in range(len(allintersections[indices[i]])):
-                        # i=1
                         # green(indices[i])
                         # red(allintersections[indices[i]])
                         # yellow(allintersections[indices[i]][j])
@@ -430,7 +397,8 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
     #            plt.scatter(altWptR[i][0],altWptR[i][1],color='green')
     #        for i in range(len(altWptL)):
     #            plt.scatter(altWptL[i][0],altWptL[i][1],color='red')
-    #        
+            # import code
+            # code.interact(local= locals())
                 
         else:
             print("no route intersections!")
@@ -474,5 +442,5 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
 
     # SHOW INTERACTIVE PLOT WINDOW
     plt.show()
-
+    
     return [IncX,IncY]

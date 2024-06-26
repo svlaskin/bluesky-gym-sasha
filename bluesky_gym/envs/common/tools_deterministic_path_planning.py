@@ -12,31 +12,6 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
 from bluesky_gym.envs.common.wind_field_deterministic_path_planning import Windfield
-import code
-
-def black(text):
-    print('\033[30m', text, '\033[0m', sep='')
-
-def red(text):
-    print('\033[31m', text, '\033[0m', sep='')
-
-def green(text):
-    print('\033[32m', text, '\033[0m', sep='')
-
-def yellow(text):
-    print('\033[33m', text, '\033[0m', sep='')
-
-def blue(text):
-    print('\033[34m', text, '\033[0m', sep='')
-
-def magenta(text):
-    print('\033[35m', text, '\033[0m', sep='')
-
-def cyan(text):
-    print('\033[36m', text, '\033[0m', sep='')
-
-def gray(text):
-    print('\033[90m', text, '\033[0m', sep='')
 
 # Define windfield
 
@@ -125,11 +100,10 @@ class Obs:
             b = Pos((xwpts[i+1],ywpts[i+1]))
     
             for j in range(len(self.vert)):                         # iterate through obstacle segments
+                c = Pos((self.vert[j][0],self.vert[j][1]))
                 if j == (len(self.vert)-1): 
-                    c = Pos((self.vert[j][0],self.vert[j][1]))
                     d = Pos((self.vert[0][0],self.vert[0][1]))
                 else:
-                    c = Pos((self.vert[j][0],self.vert[j][1]))
                     d = Pos((self.vert[j+1][0],self.vert[j+1][1]))
                 
                 if notcolinear(a,b,c,d) and intersect(a,b,c,d):
@@ -237,11 +211,10 @@ class Obs:
           #  b = Pos((destination[0],destination[1]))
             intersection = []
             for j in range(len(self.vert)):
+                c = Pos((self.vert[j][0],self.vert[j][1]))
                 if j == (len(self.vert)-1): 
-                    c = Pos((self.vert[j][0],self.vert[j][1]))
                     d = Pos((self.vert[0][0],self.vert[0][1]))
                 else:
-                    c = Pos((self.vert[j][0],self.vert[j][1]))
                     d = Pos((self.vert[j+1][0],self.vert[j+1][1]))
                 
                 if intersect(a,b,c,d) and notcolinear(a,b,c,d):
@@ -274,11 +247,17 @@ class Obs:
                 else:
                     if self.vert[segList[i]+1] not in altWptR:
                         altWptR.append(self.vert[segList[i]+1])
-
+            elif (i == 0):
+                if self.vert[segList[i]] not in altWptR:
+                # append the smaller of the two vertices to the list of right alternative waypoints                   
+                    altWptR.append(self.vert[segList[i]])
+                if self.vert[-1] not in altWptR:
+                    altWptR.append(self.vert[-1])
             else:
                 if self.vert[segList[i]] not in altWptR:
                 # append the smaller of the two vertices to the list of right alternative waypoints                   
                     altWptR.append(self.vert[segList[i]])
+            # red(altWptR)
         # (D) add additional obstacle vertices to list of right alternative waypoints, if necessary
         # create empty lists:
         indexRobs = []                                         # indices of obstacle vertices in altWptR
@@ -287,6 +266,7 @@ class Obs:
         for i in range(len(altWptR)):
             # populate list of indices of obstacle vertices in altWptR
             indexRobs.append(self.vert.index(altWptR[i]))
+            # magenta(indexRobs)
             # check if indices are consecutive; if not, need to evaluate further
             if len(indexRobs)>=2 and abs(indexRobs[-1]-indexRobs[-2])%(len(self.vert)-1)>=2:
             # note: total number of obstacle vertices is len(obs)-1 because last vertex is same as first
