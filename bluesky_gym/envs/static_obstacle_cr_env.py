@@ -9,7 +9,29 @@ from bluesky.tools.aero import kts
 
 import gymnasium as gym
 from gymnasium import spaces
+def black(text):
+    print('\033[30m', text, '\033[0m', sep='')
 
+def red(text):
+    print('\033[31m', text, '\033[0m', sep='')
+
+def green(text):
+    print('\033[32m', text, '\033[0m', sep='')
+
+def yellow(text):
+    print('\033[33m', text, '\033[0m', sep='')
+
+def blue(text):
+    print('\033[34m', text, '\033[0m', sep='')
+
+def magenta(text):
+    print('\033[35m', text, '\033[0m', sep='')
+
+def cyan(text):
+    print('\033[36m', text, '\033[0m', sep='')
+
+def gray(text):
+    print('\033[90m', text, '\033[0m', sep='')
 
 DISTANCE_MARGIN = 5 # km
 REACH_REWARD = 1 # reach set waypoint
@@ -26,6 +48,9 @@ WAYPOINT_DISTANCE_MAX = 150 # KM
 
 OBSTACLE_DISTANCE_MIN = 20 # KM
 OBSTACLE_DISTANCE_MAX = 150 # KM
+
+OTHER_AC_DISTANCE_MIN = 50 # KM
+OTHER_AC_DISTANCE_MAX = 170 # KM
 
 D_HEADING = 45 #degrees
 
@@ -150,25 +175,34 @@ class StaticObstacleCREnv(gym.Env):
 
         return observation, reward, terminated, False, info
 
-    def _generate_other_aircraft(self, num_other_aircraft = NUM_OTHER_AIRCRAFT):
+    def _generate_other_aircraft(self, acid_actor = 'KL001', num_other_aircraft = NUM_OTHER_AIRCRAFT):
         self.other_aircraft_names = []
         for i in range(num_other_aircraft): 
-            other_aircraft_name = 'ac_' + str(i+1)
+            other_aircraft_name = 'AC' + str(i+1)
             self.other_aircraft_names.append(other_aircraft_name)
-            inside = True
+            
+            check_if_inside_obs = True
             loop_counter = 0
             # check if aircraft is is created inside obstacle
-            while inside:
+            while check_if_inside_obs:
                 loop_counter+= 1
-                bs.traf.cre(acid=other_aircraft_name,actype="A320",acspd=AC_SPD)
-                ac_idx = bs.traf.id2idx(other_aircraft_name)
-                for j in range(NUM_OBSTACLES):
 
-                    # shapetemp = bs.tools.areafilter.basic_shapes[self.obstacle_names[j]]
-                    inside_temp = bs.tools.areafilter.checkInside(self.obstacle_names[j], bs.traf.lat, bs.traf.lon, bs.traf.alt)
-                    inside = inside_temp[ac_idx]
-                    # import code
-                    # code.interact(local = locals())
+                other_aircraft_dis_from_reference = np.random.randint(OTHER_AC_DISTANCE_MIN, OTHER_AC_DISTANCE_MAX)
+                other_aircraft_hdg_from_reference = np.random.randint(0, 360)
+                
+                ac_idx_actor = bs.traf.id2idx(acid_actor)
+                other_aircraft_lat, other_aircraft_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx_actor], bs.traf.lon[ac_idx_actor], other_aircraft_dis_from_reference, other_aircraft_hdg_from_reference)
+
+                bs.traf.cre(acid=other_aircraft_name,actype="A320",aclat=other_aircraft_lat, aclon=other_aircraft_lon, acspd=AC_SPD)
+                
+                ac_idx = bs.traf.id2idx(other_aircraft_name)
+
+                inside_temp = []
+                for j in range(NUM_OBSTACLES):
+                    inside_temp.append(bs.tools.areafilter.checkInside(self.obstacle_names[j], bs.traf.lat, bs.traf.lon, bs.traf.alt)[-1])
+
+                    check_if_inside_obs = any(x == True for x in inside_temp)
+
                 if loop_counter > 1000:
                     raise Exception("No aircraft can be generated outside the obstacles. Check the parameters of the obstacles in the definition of the scenario.")
 
@@ -228,7 +262,6 @@ class StaticObstacleCREnv(gym.Env):
             else:
                 ac_idx = bs.traf.id2idx(self.other_aircraft_names[i-1])
             
-
             check_inside_var = True
             loop_counter = 0
             while check_inside_var:
@@ -318,8 +351,7 @@ class StaticObstacleCREnv(gym.Env):
 
         for i in range(num_other_aircraft): 
             ac_idx = bs.traf.id2idx(self.other_aircraft_names[i])
-            print(bs.traf.lat[ac_idx])
-            print(bs.traf.lon[ac_idx])
+
             planned_path_other_aircraft = path_plan.det_path_planning(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.alt[ac_idx], bs.traf.tas[ac_idx]/kts, self.wpt_lat[i+1], self.wpt_lon[i+1], self.obstacle_vertices)
             # i = 1
             # ac_idx = bs.traf.id2idx(obj0[i])
