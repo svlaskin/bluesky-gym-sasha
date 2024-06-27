@@ -17,7 +17,7 @@ EPOCHS = 200
 
 if __name__ == "__main__":
     # Create the environment
-    env = gym.make('AMANEnv-v0', render_mode=None)
+    env = gym.make('AMANEnvS-v0', render_mode=None)
     obs, info = env.reset()
 
     # Create the model
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     if TRAIN:
         for i in range(EPOCHS):
             model.learn(total_timesteps=int(20e5/EPOCHS))
-            model.save("models/AMANEnv-v0_ppo/model")
+            model.save("models/AMANEnvS-v0_ppo/model")
         del model
     
     env.close()
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     # Test the trained model
 
     # model = PPO.load("models/AMANEnv-v0_ppo/model_10000", env=env)
-    env = gym.make('AMANEnv-v0', render_mode="human")
+    env = gym.make('AMANEnvS-v0', render_mode="human")
 
     for i in range(EVAL_EPISODES):
         done = truncated = False
