@@ -344,7 +344,7 @@ class AmanEnv(gym.Env):
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235))
 
-        # transform the coordinates to the FAF's reference plane
+        # TODO: transform the coordinates to the FAF's reference plane
         
 
         # draw ownship
@@ -389,12 +389,15 @@ class AmanEnv(gym.Env):
             else: 
                 color = (80,80,80)
 
-            # ownship - quick fix
+            # ownship - quick fixFimport
             if i==0:
                 color = (252, 43, 28)
 
             x_pos = (self.window_width/2)+(np.cos(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_width
             y_pos = (self.window_height/2)-(np.sin(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_height
+
+            # x_pos = 
+            # y_pos = 
 
             pygame.draw.line(canvas,
                 color,
