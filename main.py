@@ -17,7 +17,7 @@ EPOCHS = 200
 
 if __name__ == "__main__":
     # Create the environment
-    env = gym.make('StaticObstacleCREnv-v0', render_mode=None)
+    env = gym.make('StaticObstacleCREnv-v0', render_mode='human')
 
     obs, info = env.reset()
 
@@ -45,6 +45,7 @@ if __name__ == "__main__":
         while not (done or truncated):
             # Predict
             # action = np.array([0])
+            # action = input()
             action, _states = model.predict(obs, deterministic=True)
             # Get reward
             obs, reward, done, truncated, info = env.step(action[()])

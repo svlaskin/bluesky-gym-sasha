@@ -43,8 +43,8 @@ RESTRICTED_AREA_INTRUSION_PENALTY = -1
 NUM_INTRUDERS = 5
 INTRUSION_DISTANCE = 5 # NM
 
-WAYPOINT_DISTANCE_MIN = 100 # KM
-WAYPOINT_DISTANCE_MAX = 150 # KM
+WAYPOINT_DISTANCE_MIN = 5 # KM
+WAYPOINT_DISTANCE_MAX = 170 # KM
 
 OBSTACLE_DISTANCE_MIN = 20 # KM
 OBSTACLE_DISTANCE_MAX = 150 # KM
@@ -71,6 +71,7 @@ POLY_AREA_RANGE = (50, np.random.randint(100,200)) # In NM^2
 CENTER = (51.990426702297746, 4.376124857109851) # TU Delft AE Faculty coordinates
 
 
+
 class StaticObstacleCREnv(gym.Env):
     """ 
     Static Obstacle Conflict Resolution Environment
@@ -84,7 +85,6 @@ class StaticObstacleCREnv(gym.Env):
         self.window_width = 512 # pixels
         self.window_height = 512 # pixels
         self.window_size = (self.window_width, self.window_height) # Size of the rendered environment
-
 
         # Observation space should include ownship and intruder info
         # Maybe later also have an option for CNN based intruder info, could be interesting
@@ -256,17 +256,21 @@ class StaticObstacleCREnv(gym.Env):
         self.wpt_lon = []
         self.wpt_reach = []
         for i in range(NUM_WAYPOINTS):
-            
-            if i == 0:
-                ac_idx = bs.traf.id2idx(acid)
-            else:
-                ac_idx = bs.traf.id2idx(self.other_aircraft_names[i-1])
+
+            ac_idx = bs.traf.id2idx(acid)
+            # if i == 0:
+            #     ac_idx = bs.traf.id2idx(acid)
+            # else:
+            #     ac_idx = bs.traf.id2idx(self.other_aircraft_names[i-1])
             
             check_inside_var = True
             loop_counter = 0
             while check_inside_var:
                 loop_counter+= 1
-                wpt_dis_init = np.random.randint(WAYPOINT_DISTANCE_MIN, WAYPOINT_DISTANCE_MAX)
+                if i == 0:
+                    wpt_dis_init = np.random.randint(100, WAYPOINT_DISTANCE_MAX)
+                else:
+                    wpt_dis_init = np.random.randint(WAYPOINT_DISTANCE_MIN, WAYPOINT_DISTANCE_MAX)
                 wpt_hdg_init = np.random.randint(0, 360)
                 wpt_lat, wpt_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], wpt_dis_init, wpt_hdg_init)
 
@@ -340,7 +344,7 @@ class StaticObstacleCREnv(gym.Env):
             pickle.dump([obj0, obj1, obj2, obj3, obj4, obj5, obj6, obj7], f)
 
         # Getting back the objects:
-        # with open('objs-bugs-v3.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
+        # with open('objs-bugs-v4.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
         #     obj0, obj1, obj2, obj3, obj4, obj5, obj6, obj7 = pickle.load(f)
 
         
@@ -351,7 +355,6 @@ class StaticObstacleCREnv(gym.Env):
 
         for i in range(num_other_aircraft): 
             ac_idx = bs.traf.id2idx(self.other_aircraft_names[i])
-
             planned_path_other_aircraft = path_plan.det_path_planning(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.alt[ac_idx], bs.traf.tas[ac_idx]/kts, self.wpt_lat[i+1], self.wpt_lon[i+1], self.obstacle_vertices)
             # i = 1
             # ac_idx = bs.traf.id2idx(obj0[i])
@@ -493,11 +496,23 @@ class StaticObstacleCREnv(gym.Env):
             pygame.init()
             pygame.display.init()
             self.window = pygame.display.set_mode(self.window_size)
+            
 
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        max_distance = 200 # width of screen in km
+        ## BUG!!! ATC EACH ITERATION, THE REFERENCE POSITION WHICH SHOULD BE DEFINED FROM THE INITIAL POSITION OF THE ACTOR WILL CHANGE FOLLOWING THE CHANGE IN POSITION OF THE ACTOR
+        max_distance = 400 # width of screen in km
+            
+        # defining the reference point as the top left corner of the SQUARE screen
+        # from the initial position of the aircraft which is set to be the centre of the screen
+
+        ac_idx = bs.traf.id2idx('KL001')
+        d = np.sqrt(2*(max_distance/2)**2) #KM
+        lat_ref_point,lon_ref_point = bs.tools.geo.kwikpos(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], 315, d/NM2KM)
+        
+        screen_coords = [lat_ref_point,lon_ref_point]#[52.9, 2.6]
+        
 
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235))
@@ -507,11 +522,24 @@ class StaticObstacleCREnv(gym.Env):
         ac_length = 8
         heading_end_x = ((np.cos(np.deg2rad(self.ac_hdg)) * ac_length)/max_distance)*self.window_width
         heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * ac_length)/max_distance)*self.window_width
+        # print(self.window_width/2, self.window_height/2)
+        # pygame.draw.line(canvas,
+        #     (0,0,0),
+        #     (self.window_width/2-heading_end_x/2,self.window_height/2+heading_end_y/2),
+        #     ((self.window_width/2)+heading_end_x/2
+        #      ,(self.window_height/2)-heading_end_y/2),
+        #     width = 4
+        # )
+
+        qdr, dis = bs.tools.geo.kwikqdrdist(screen_coords[0], screen_coords[1], bs.traf.lat[ac_idx], bs.traf.lon[ac_idx])
+        dis = dis*NM2KM
+        x_actor = ((np.sin(np.deg2rad(qdr))*dis)/max_distance)*self.window_width
+        y_actor = ((-np.cos(np.deg2rad(qdr))*dis)/max_distance)*self.window_width
 
         pygame.draw.line(canvas,
-            (0,0,0),
-            (self.window_width/2-heading_end_x/2,self.window_height/2+heading_end_y/2),
-            ((self.window_width/2)+heading_end_x/2,(self.window_height/2)-heading_end_y/2),
+            (235, 52, 52),
+            (x_actor-heading_end_x/2, y_actor),
+            (x_actor+heading_end_x/2, y_actor),
             width = 4
         )
 
@@ -522,10 +550,25 @@ class StaticObstacleCREnv(gym.Env):
 
         pygame.draw.line(canvas,
             (0,0,0),
-            (self.window_width/2,self.window_height/2),
-            ((self.window_width/2)+heading_end_x,(self.window_height/2)-heading_end_y),
+            (x_actor,y_actor),
+            (x_actor+heading_end_x, y_actor-heading_end_y),
             width = 1
         )
+
+        # draw obstacles
+        for vertices in self.obstacle_vertices:
+            points = []
+            for coord in vertices:
+                lat_ref = coord[0]
+                lon_ref = coord[1]
+                qdr, dis = bs.tools.geo.kwikqdrdist(screen_coords[0], screen_coords[1], lat_ref, lon_ref)
+                dis = dis*NM2KM
+                x_ref = (np.sin(np.deg2rad(qdr))*dis)/max_distance*self.window_width
+                y_ref = (-np.cos(np.deg2rad(qdr))*dis)/max_distance*self.window_width
+                points.append((x_ref, y_ref))
+            pygame.draw.polygon(canvas,
+                (0,0,0), points
+            )
 
         # draw intruders
         ac_length = 3
@@ -536,7 +579,7 @@ class StaticObstacleCREnv(gym.Env):
             heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
             heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
 
-            int_qdr, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
+            int_qdr, int_dis = bs.tools.geo.kwikqdrdist(screen_coords[0], screen_coords[1], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
 
             # determine color
             if int_dis < INTRUSION_DISTANCE:
@@ -544,8 +587,8 @@ class StaticObstacleCREnv(gym.Env):
             else: 
                 color = (80,80,80)
 
-            x_pos = (self.window_width/2)+(np.cos(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_width
-            y_pos = (self.window_height/2)-(np.sin(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_height
+            x_pos = (np.sin(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_width
+            y_pos = -(np.cos(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_height
 
             pygame.draw.line(canvas,
                 color,
@@ -578,20 +621,30 @@ class StaticObstacleCREnv(gym.Env):
             # code.interact(local=locals())
 
         # draw target waypoint
-        for qdr, dis, reach in zip(self.wpt_qdr, self.waypoint_distance, self.wpt_reach):
+        indx = 0
+        for lat, lon, reach in zip(self.wpt_lat, self.wpt_lon, self.wpt_reach):
+            
+            indx += 1
+            qdr, dis = bs.tools.geo.kwikqdrdist(screen_coords[0], screen_coords[1], lat, lon)
 
-            circle_x = ((np.cos(np.deg2rad(qdr)) * dis)/max_distance)*self.window_width
-            circle_y = ((np.sin(np.deg2rad(qdr)) * dis)/max_distance)*self.window_width
+            circle_x = ((np.sin(np.deg2rad(qdr)) * dis * NM2KM)/max_distance)*self.window_width
+            circle_y = (-(np.cos(np.deg2rad(qdr)) * dis * NM2KM)/max_distance)*self.window_width
+
 
             if reach:
                 color = (155,155,155)
+                color_actor_target = (18, 14, 120)
             else:
                 color = (255,255,255)
+                color_actor_target = (235, 52, 52)
+            
+            if indx == 1:
+                color = color_actor_target
 
             pygame.draw.circle(
                 canvas, 
                 color,
-                ((self.window_width/2)+circle_x,(self.window_height/2)-circle_y),
+                (circle_x,circle_y),
                 radius = 4,
                 width = 0
             )
@@ -599,14 +652,17 @@ class StaticObstacleCREnv(gym.Env):
             pygame.draw.circle(
                 canvas, 
                 color,
-                ((self.window_width/2)+circle_x,(self.window_height/2)-circle_y),
+                (circle_x,circle_y),
                 radius = (DISTANCE_MARGIN/max_distance)*self.window_width,
                 width = 2
             )
 
         self.window.blit(canvas, canvas.get_rect())
-        pygame.display.update()
-        self.clock.tick(self.metadata["render_fps"])
         
+        pygame.display.update()
+        
+        self.clock.tick(self.metadata["render_fps"])
+        pygame.time.wait(10**5)
+
     def close(self):
         pass
