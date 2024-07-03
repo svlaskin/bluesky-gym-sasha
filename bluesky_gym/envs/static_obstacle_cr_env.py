@@ -86,29 +86,29 @@ class StaticObstacleCREnv(gym.Env):
         self.window_height = 512 # pixels
         self.window_size = (self.window_width, self.window_height) # Size of the rendered environment
 
-        # Observation space should include ownship and intruder info
-        # Maybe later also have an option for CNN based intruder info, could be interesting
+        # Observation space should include ownship and intruder info, end destination info for ownship, relative position of obstcles in reference to ownships
+        # Maybe later also have an option for CNN based intruder and obstacle info, could be interesting
         self.observation_space = spaces.Dict(
             {
                 "intruder_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
-                "cos_difference_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
-                "sin_difference_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
-                "x_difference_speed": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
-                "y_difference_speed": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
-                "waypoint_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
-                "cos_drift": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
-                "sin_drift": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
+                "intruder_cos_difference_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
+                "intruder_sin_difference_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
+                "intruder_x_difference_speed": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
+                "intruder_y_difference_speed": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
+                "destination_waypoint_distance": spaces.Box(-np.inf, np.inf, shape = (1,), dtype=np.float64),
+                "destination_waypoint_cos_drift": spaces.Box(-np.inf, np.inf, shape = (1,), dtype=np.float64),
+                "destination_waypoint_sin_drift": spaces.Box(-np.inf, np.inf, shape = (1,), dtype=np.float64),
                 # "restricted_area_intrusion": spaces.Box(0, 1, shape = (1,), dtype=np.float64),
-                # "restricted_area__distance": spaces.Box(-np.inf, np.inf, shape = (n_obstacle_vertices,), dtype=np.float64),
-                # "cos_difference_restricted_area_pos": spaces.Box(-np.inf, np.inf, shape = (n_obstacle_vertices,), dtype=np.float64),
-                # "sin_difference_restricted_area_pos": spaces.Box(-np.inf, np.inf, shape = (n_obstacle_vertices,), dtype=np.float64)
+                "restricted_area_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_OBSTACLES, ), dtype=np.float64),
+                "cos_difference_restricted_area_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_OBSTACLES,), dtype=np.float64),
+                "sin_difference_restricted_area_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_OBSTACLES,), dtype=np.float64)
             }
         )
        
         self.action_space = spaces.Dict(
             {
                 "heading": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
-                "speed": spaces.Box(-1, 1, shape=(1,), dtype=np.float64)
+                # "speed": spaces.Box(-1, 1, shape=(1,), dtype=np.float64)
             }
         )
 
@@ -209,6 +209,7 @@ class StaticObstacleCREnv(gym.Env):
     def _generate_polygon(self, centre):
         
         R = np.sqrt(POLY_AREA_RANGE[1] / np.pi)
+        red(R)
         p = [fn.random_point_on_circle(R) for _ in range(3)] # 3 random points to start building the polygon
         p = fn.sort_points_clockwise(p)
         p_area = fn.polygon_area(p)
@@ -224,17 +225,18 @@ class StaticObstacleCREnv(gym.Env):
         
         # points = [coord for point in p for coord in point] # Flatten the list of points
         #bs.tools.areafilter.defineArea(self.poly_name, 'POLY', points)
-        return p_area, p
+        return p_area, p, R
     
     def _generate_obstacles(self):
         self.obstacle_names = []
         self.obstacle_vertices = []
+        self.obstacle_radius = []
         #self._generate_waypoint(num_waypoints = NUM_OBSTACLES)
         self._generate_coordinates_centre_obstacles(num_obstacles = NUM_OBSTACLES)
 
         for i in range(NUM_OBSTACLES):
-            centre_obst = (self.obstacle_lat[i], self.obstacle_lon[i])
-            p_area, p = self._generate_polygon(centre_obst)
+            centre_obst = (self.obstacle_centre_lat[i], self.obstacle_centre_lon[i])
+            p_area, p, R = self._generate_polygon(centre_obst)
             
             points = [coord for point in p for coord in point] # Flatten the list of points
 
@@ -248,6 +250,7 @@ class StaticObstacleCREnv(gym.Env):
                 obstacle_vertices_coordinates.append([points[k], points[k+1]])
             
             self.obstacle_vertices.append(obstacle_vertices_coordinates)
+            self.obstacle_radius.append(R)
 
 
     # original _generate_waypoints function from horizotal_cr_env
@@ -315,17 +318,17 @@ class StaticObstacleCREnv(gym.Env):
     #         self.wpt_reach.append(0)
 
     def _generate_coordinates_centre_obstacles(self, acid = 'KL001', num_obstacles = NUM_OBSTACLES):
-        self.obstacle_lat = []
-        self.obstacle_lon = []
+        self.obstacle_centre_lat = []
+        self.obstacle_centre_lon = []
         
         for i in range(num_obstacles):
             obstacle_dis_from_reference = np.random.randint(OBSTACLE_DISTANCE_MIN, OBSTACLE_DISTANCE_MAX)
             obstacle_hdg_from_reference = np.random.randint(0, 360)
             ac_idx = bs.traf.id2idx(acid)
 
-            obstacle_lat, obstacle_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], obstacle_dis_from_reference, obstacle_hdg_from_reference)    
-            self.obstacle_lat.append(obstacle_lat)
-            self.obstacle_lon.append(obstacle_lon)
+            obstacle_centre_lat, obstacle_centre_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], obstacle_dis_from_reference, obstacle_hdg_from_reference)    
+            self.obstacle_centre_lat.append(obstacle_centre_lat)
+            self.obstacle_centre_lon.append(obstacle_centre_lon)
 
 
     def _path_planning(self, num_other_aircraft = NUM_OTHER_AIRCRAFT):
@@ -359,27 +362,39 @@ class StaticObstacleCREnv(gym.Env):
             # i = 1
             # ac_idx = bs.traf.id2idx(obj0[i])
             # planned_path_other_aircraft = path_plan.det_path_planning(obj1[ac_idx], obj2[ac_idx], obj3[ac_idx], obj4[ac_idx]/kts, obj5[i+1], obj6[i+1], obj7)
-            # import code
-            # code.interact(local= locals())
+            
+
             self.planned_path_other_aircraft.append(planned_path_other_aircraft)
-        
+
+            for element in planned_path_other_aircraft:
+                # print(element)
+                # import code
+                # code.interact(local= locals())
+                bs.stack.stack(f"ADDWPT {self.other_aircraft_names[i]} {element[0]} {element[1]}")
+
     def _get_obs(self):
         ac_idx = bs.traf.id2idx('KL001')
 
         self.intruder_distance = []
-        self.cos_bearing = []
-        self.sin_bearing = []
-        self.x_difference_speed = []
-        self.y_difference_speed = []
+        self.intruder_cos_bearing = []
+        self.intruder_sin_bearing = []
+        self.intruder_x_difference_speed = []
+        self.intruder_y_difference_speed = []
 
-        self.waypoint_distance = []
+        self.destination_waypoint_distance = []
         self.wpt_qdr = []
-        self.cos_drift = []
-        self.sin_drift = []
-        self.drift = []
+        self.destination_waypoint_cos_drift = []
+        self.destination_waypoint_sin_drift = []
+        self.destination_waypoint_drift = []
 
+        # obstacles 
+        self.obstacle_centre_distance = []
+        self.obstacle_centre_cos_bearing = []
+        self.obstacle_centre_sin_bearing = []
+        
         self.ac_hdg = bs.traf.hdg[ac_idx]
-
+        
+        # intruders observation
         for i in range(NUM_INTRUDERS):
             int_idx = i+1
             int_qdr, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
@@ -389,44 +404,63 @@ class StaticObstacleCREnv(gym.Env):
             bearing = self.ac_hdg - int_qdr
             bearing = fn.bound_angle_positive_negative_180(bearing)
 
-            self.cos_bearing.append(np.cos(np.deg2rad(bearing)))
-            self.sin_bearing.append(np.sin(np.deg2rad(bearing)))
+            self.intruder_cos_bearing.append(np.cos(np.deg2rad(bearing)))
+            self.intruder_sin_bearing.append(np.sin(np.deg2rad(bearing)))
 
             heading_difference = bs.traf.hdg[ac_idx] - bs.traf.hdg[int_idx]
             x_dif = - np.cos(np.deg2rad(heading_difference)) * bs.traf.gs[int_idx]
             y_dif = bs.traf.gs[ac_idx] - np.sin(np.deg2rad(heading_difference)) * bs.traf.gs[int_idx]
 
-            self.x_difference_speed.append(x_dif)
-            self.y_difference_speed.append(y_dif)
+            self.intruder_x_difference_speed.append(x_dif)
+            self.intruder_y_difference_speed.append(y_dif)
 
 
-        for lat, lon in zip(self.wpt_lat, self.wpt_lon):
+        # destination waypoint observation
             
-            self.ac_hdg = bs.traf.hdg[ac_idx]
-            wpt_qdr, wpt_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], lat, lon)
+        self.ac_hdg = bs.traf.hdg[ac_idx]
+        self.ac_tas = bs.traf.tas[ac_idx]
+        wpt_qdr, wpt_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.wpt_lat[0], self.wpt_lon[0])
+    
+        self.destination_waypoint_distance.append(wpt_dis * NM2KM)
+        self.wpt_qdr.append(wpt_qdr)
+
+        drift = self.ac_hdg - wpt_qdr
+        drift = fn.bound_angle_positive_negative_180(drift)
+
+        self.destination_waypoint_drift.append(drift)
+        self.destination_waypoint_cos_drift.append(np.cos(np.deg2rad(drift)))
+        self.destination_waypoint_sin_drift.append(np.sin(np.deg2rad(drift)))
+
+
+        # obstacles observations
         
-            self.waypoint_distance.append(wpt_dis * NM2KM)
-            self.wpt_qdr.append(wpt_qdr)
+        for obs_idx in range(NUM_OBSTACLES):
+            obs_centre_qdr, obs_centre_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.obstacle_centre_lat[obs_idx], self.obstacle_centre_lon[obs_idx])
+            obs_centre_dis = obs_centre_dis * NM2KM #KM        
 
-            drift = self.ac_hdg - wpt_qdr
-            drift = fn.bound_angle_positive_negative_180(drift)
+            bearing = self.ac_hdg - obs_centre_qdr
+            bearing = fn.bound_angle_positive_negative_180(bearing)
 
-            self.drift.append(drift)
-            self.cos_drift.append(np.cos(np.deg2rad(drift)))
-            self.sin_drift.append(np.sin(np.deg2rad(drift)))
+            self.obstacle_centre_distance.append(obs_centre_dis)
+            self.obstacle_centre_cos_bearing.append(np.cos(np.deg2rad(bearing)))
+            self.obstacle_centre_sin_bearing.append(np.sin(np.deg2rad(bearing)))
 
         observation = {
                 "intruder_distance": np.array(self.intruder_distance)/WAYPOINT_DISTANCE_MAX,
-                "cos_difference_pos": np.array(self.cos_bearing),
-                "sin_difference_pos": np.array(self.sin_bearing),
-                "x_difference_speed": np.array(self.x_difference_speed)/AC_SPD,
-                "y_difference_speed": np.array(self.y_difference_speed)/AC_SPD,
-                "waypoint_distance": np.array(self.waypoint_distance)/WAYPOINT_DISTANCE_MAX,
-                "cos_drift": np.array(self.cos_drift),
-                "sin_drift": np.array(self.sin_drift)
-                # add observations on obstacles
+                "intruder_cos_difference_pos": np.array(self.intruder_cos_bearing),
+                "intruder_sin_difference_pos": np.array(self.intruder_sin_bearing),
+                "intruder_x_difference_speed": np.array(self.intruder_x_difference_speed)/AC_SPD,
+                "intruder_y_difference_speed": np.array(self.intruder_y_difference_speed)/AC_SPD,
+                "destination_waypoint_distance": np.array(self.destination_waypoint_distance)/WAYPOINT_DISTANCE_MAX,
+                "destination_waypoint_cos_drift": np.array(self.destination_waypoint_cos_drift),
+                "destination_waypoint_sin_drift": np.array(self.destination_waypoint_sin_drift),
+                # observations on obstacles
+                "restricted_area_distance": np.array(self.obstacle_centre_distance)/WAYPOINT_DISTANCE_MAX,
+                "cos_difference_restricted_area_pos": np.array(self.obstacle_centre_cos_bearing),
+                "sin_difference_restricted_area_pos": np.array(self.obstacle_centre_sin_bearing),
+
             }
-        
+
         return observation
     
     def _get_info(self):
@@ -444,19 +478,20 @@ class StaticObstacleCREnv(gym.Env):
 
         reach_reward = self._check_waypoint()
         drift_reward = self._check_drift()
+        intrusion_other_ac_reward = self._check_intrusion_other_ac()
         intrusion_reward = self._check_intrusion()
 
-        total_reward = reach_reward + drift_reward + intrusion_reward
+        total_reward = reach_reward + drift_reward + intrusion_other_ac_reward + intrusion_reward
 
         if 0 in self.wpt_reach:
             return total_reward, 0
         else:
             return total_reward, 1
-        
+    
     def _check_waypoint(self):
         reward = 0
         index = 0
-        for distance in self.waypoint_distance:
+        for distance in self.destination_waypoint_distance:
             if distance < DISTANCE_MARGIN and self.wpt_reach[index] != 1:
                 self.wpt_reach[index] = 1
                 reward += REACH_REWARD
@@ -469,7 +504,7 @@ class StaticObstacleCREnv(gym.Env):
     def _check_drift(self):
         return abs(np.deg2rad(self.drift[0])) * DRIFT_PENALTY
 
-    def _check_intrusion(self):
+    def _check_intrusion_other_ac(self):
         ac_idx = bs.traf.id2idx('KL001')
         reward = 0
         for i in range(NUM_INTRUDERS):
@@ -479,17 +514,25 @@ class StaticObstacleCREnv(gym.Env):
                 reward += AC_INTRUSION_PENALTY
         
         return reward
-    
+
+    def _check_intrusion(self):
+        ac_idx = bs.traf.id2idx('KL001')
+        reward = 0
+        for i in range(NUM_OBSTACLES):
+            obs_idx = i+1
+            _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.obstacle_centre_lat[obs_idx], self.obstacle_centre_lon[obs_idx])
+            if int_dis < INTRUSION_DISTANCE:
+                reward += RESTRICTED_AREA_INTRUSION_PENALTY
+        
+        return reward
+
+
     def _get_action(self,action):
             
-
-
             action = self.ac_hdg + action * D_HEADING
-
+            # action = self.ac_tas + action * 
             bs.stack.stack(f"HDG KL001 {action[0]}")
-
-
-
+            # bs.stack.stack(f"HDG KL001 {action[0]}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
@@ -662,7 +705,7 @@ class StaticObstacleCREnv(gym.Env):
         pygame.display.update()
         
         self.clock.tick(self.metadata["render_fps"])
-        pygame.time.wait(10**5)
+        # pygame.time.wait(10**5)
 
     def close(self):
         pass

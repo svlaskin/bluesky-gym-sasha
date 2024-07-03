@@ -25,7 +25,7 @@ Uses tools from "mytools.py" and "windfield.py".
 
 import matplotlib.pyplot as plt
 import numpy as np
-from bluesky_gym.envs.common.tools_deterministic_path_planning import Pos,LatLon2XY,processread,Obs,parse,obsReader,\
+from bluesky_gym.envs.common.tools_deterministic_path_planning import Pos, LatLon2XY, XY2LatLon, processread,Obs,parse,obsReader,\
 Route,wyptannotate,callWinds,intersectionpt,specifywindfield
 
 #from math import degrees
@@ -424,9 +424,12 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
     print('############## end algorithm ##############')
     print('')
 
+    IncX,IncY = list(zip(*incumbent.waypoints))
+    
+    
+
 
     if pltfinalsol:
-        IncX,IncY = list(zip(*incumbent.waypoints))
         plt.plot(IncX,IncY,'-')  
 
     if optimizationpriority == 0:
@@ -436,11 +439,13 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
         print('optimized route time [hr]: ', incumbent.time)
         print('')
             
-        
+    waypoint_latlon = []
+    for element in incumbent.waypoints:
+        waypoint_latlon.append(XY2LatLon(element[0], element[1]))
 
-
-
+    # import code
+    # code.interact(local= locals())
     # SHOW INTERACTIVE PLOT WINDOW
     plt.show()
     
-    return [IncX,IncY]
+    return waypoint_latlon
