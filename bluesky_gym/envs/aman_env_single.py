@@ -19,8 +19,8 @@ INTRUSION_PENALTY = -1
 # NUM_WAYPOINTS = 1
 INTRUSION_DISTANCE = 5 # NM
 
-WAYPOINT_DISTANCE_MIN = 100
-WAYPOINT_DISTANCE_MAX = 150
+WAYPOINT_DISTANCE_MIN = 70
+WAYPOINT_DISTANCE_MAX = 250
 
 D_HEADING = 45 # heading delta from approach fix, one way
 D_SPEED = 20 # random value for now
@@ -91,9 +91,12 @@ class AmanEnvS(gym.Env):
 
         self.window = None
         self.clock = None
+        self.nac = NUM_AC
+        self.wpt_reach = np.zeros(NUM_AC)
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        self.wpt_reach = np.zeros(NUM_AC)
         
         bs.traf.reset()
 
@@ -141,8 +144,8 @@ class AmanEnvS(gym.Env):
         for i in range(NUM_AC-1):
             # randomise position here
             bearing_to_pos = random.uniform(-D_HEADING, D_HEADING) # heading radial towards FAF
-            # distance_to_pos = random.uniform(7.5,30) # distance to faf 
-            distance_to_pos = 50
+            distance_to_pos = random.uniform(30,300) # distance to faf 
+            # distance_to_pos = 50
             lat_ac, lon_ac = fn.get_point_at_distance(FIX_LAT, FIX_LON, distance_to_pos, bearing_to_pos)
             
             self.wpt_lat = FIX_LAT
@@ -154,7 +157,7 @@ class AmanEnvS(gym.Env):
             bs.traf.cre(f'INT{i}',actype="A320",acspd=AC_SPD,aclat=lat_ac,aclon=lon_ac,achdg=180)
             bs.stack.stack(f"INT{i} addwpt {FIX_LAT} {FIX_LON}")
             bs.stack.stack(f"INT{i} dest {RWY_LAT} {RWY_LON}")
-            
+        bs.stack.stack('reso off')
         return
 
     def _get_obs(self):
@@ -201,20 +204,6 @@ class AmanEnvS(gym.Env):
             # FAF
             faf_qdr, faf_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[int_idx], bs.traf.lon[int_idx], self.wpt_lat, self.wpt_lon)
             self.faf_distance.append(faf_dis * NM2KM)
-
-        
-        # self.ac_hdg = bs.traf.hdg[ac_idx]
-        # wpt_qdr, wpt_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.wpt_lat, self.wpt_lon)
-    
-        # self.waypoint_distance.append(wpt_dis * NM2KM)
-        # self.wpt_qdr.append(wpt_qdr)
-
-        # drift = self.ac_hdg - wpt_qdr
-        # drift = fn.bound_angle_positive_negative_180(drift)
-
-        # self.drift.append(drift)
-        # self.cos_drift.append(np.cos(np.deg2rad(drift)))
-        # self.sin_drift.append(np.sin(np.deg2rad(drift)))
 
         observation = {
                 "intruder_distance": np.array(self.intruder_distance)/WAYPOINT_DISTANCE_MAX,
@@ -279,8 +268,15 @@ class AmanEnvS(gym.Env):
             _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
             if int_dis < INTRUSION_DISTANCE:
                 reward += INTRUSION_PENALTY
-        
         return reward
+    
+    # def _check_arrival(self):
+    #     for i in range(NUM_AC): # excluding ownship
+    #         int_idx = i
+    #         _, rwy_dis = bs.tools.geo.kwikqdrdist(self.rwy_lat, self.rwy_lon, bs.traf.lat[int_idx], bs.traf.lon[int_idx])
+    #         if rwy_dis < INTRUSION_DISTANCE:
+    #             terminated[i] = True
+    #     return reward
     
     # action is currently limited to speed change
     # def _get_action(self,action):
@@ -304,18 +300,17 @@ class AmanEnvS(gym.Env):
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235)) 
 
-        # TODO: transform the coordinates to the FAF's reference plane
 
         # first draw faf at fixed location, only one of these
         for qdr, dis in zip(self.wpt_qdr, self.waypoint_distance):
 
-            circle_x = ((np.cos(np.deg2rad(qdr)) * dis)/max_distance)*self.window_width
-            circle_y = ((np.sin(np.deg2rad(qdr)) * dis)/max_distance)*self.window_width
+            circle_x = self.window_width/3
+            circle_y = self.window_height/2
 
             pygame.draw.circle(
                 canvas, 
                 (255,255,255),
-                (self.window_width/2,self.window_height/2),
+                (circle_x,circle_y),
                 radius = 4,
                 width = 0
             )
@@ -323,9 +318,39 @@ class AmanEnvS(gym.Env):
             pygame.draw.circle(
                 canvas, 
                 (255,255,255),
-                (self.window_width/2,self.window_height/2),
+                (circle_x,circle_y),
                 radius = (DISTANCE_MARGIN/max_distance)*self.window_width,
                 width = 2
+            )
+            # draw line to faf
+            heading_length = 5000
+            heading_end_x = ((np.cos(np.deg2rad(180)) * heading_length)/max_distance)*self.window_width
+            heading_end_y = ((np.sin(np.deg2rad(180)) * heading_length)/max_distance)*self.window_width
+            pygame.draw.line(canvas,
+            (0,0,0),
+            (circle_x,circle_y),
+            (circle_x+heading_end_x/2,circle_y-heading_end_y/2),
+            width = 2
+            )
+
+
+
+            # heading boundary lines
+            he_x_l = ((np.cos(np.deg2rad(180+135)) * heading_length)/max_distance)*self.window_width
+            he_y_l = ((np.sin(np.deg2rad(180+135)) * heading_length)/max_distance)*self.window_width
+            he_x_r = ((np.cos(np.deg2rad(180-135)) * heading_length)/max_distance)*self.window_width
+            he_y_r = ((np.sin(np.deg2rad(180-135)) * heading_length)/max_distance)*self.window_width
+            pygame.draw.line(canvas,
+            (3,252,11),
+            (circle_x,circle_y),
+            (circle_x+he_x_l/2,circle_y-he_y_l/2),
+            width = 2
+            )
+            pygame.draw.line(canvas,
+            (3,252,11),
+            (circle_x,circle_y),
+            (circle_x+he_x_r/2,circle_y-he_y_r/2),
+            width = 2
             )
         
 
@@ -336,8 +361,8 @@ class AmanEnvS(gym.Env):
         heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * ac_length)/max_distance)*self.window_width
 
         own_qdr, own_dis = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, bs.traf.lat[ac_idx], bs.traf.lon[ac_idx])
-        x_pos = (self.window_width/2)+(np.cos(np.deg2rad(own_qdr))*(own_dis * NM2KM)/max_distance)*self.window_width
-        y_pos = (self.window_height/2)-(np.sin(np.deg2rad(own_qdr))*(own_dis * NM2KM)/max_distance)*self.window_height
+        x_pos = (circle_x)+(np.cos(np.deg2rad(own_qdr))*(own_dis * NM2KM)/max_distance)*self.window_width
+        y_pos = (circle_y)-(np.sin(np.deg2rad(own_qdr))*(own_dis * NM2KM)/max_distance)*self.window_height
         pygame.draw.line(canvas,
             (0,0,0),
             (x_pos,y_pos),
@@ -350,12 +375,12 @@ class AmanEnvS(gym.Env):
         heading_end_x = ((np.cos(np.deg2rad(self.ac_hdg)) * heading_length)/max_distance)*self.window_width
         heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * heading_length)/max_distance)*self.window_width
 
-        pygame.draw.line(canvas,
-            (0,0,0),
-            (self.window_width/2,self.window_height/2),
-            ((self.window_width/2)+heading_end_x,(self.window_height/2)-heading_end_y),
-            width = 1
-        )
+        # pygame.draw.line(canvas,
+        #     (0,0,0),
+        #     (self.window_width/2,self.window_height/2),
+        #     ((self.window_width/2)+heading_end_x,(self.window_height/2)-heading_end_y),
+        #     width = 1
+        # )
 
         # draw intruders
         ac_length = 3
@@ -373,13 +398,11 @@ class AmanEnvS(gym.Env):
                 color = (220,20,60)
             else: 
                 color = (80,80,80)
-
-            # ownship - quick fixFimport
             if i==0:
                 color = (252, 43, 28)
 
-            x_pos = (self.window_width/2)+(np.cos(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_width
-            y_pos = (self.window_height/2)-(np.sin(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_height
+            x_pos = (circle_x)+(np.cos(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_width
+            y_pos = (circle_y)-(np.sin(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_height
 
             # x_pos = 
             # y_pos = 
@@ -415,7 +438,6 @@ class AmanEnvS(gym.Env):
             # code.interact(local=locals())
 
         # # draw target waypoint - Here it is the runway
-        self.wpt_reach = np.zeros_like(self.intruder_distance)
         # for qdr, dis, reach in zip(self.wpt_qdr, self.waypoint_distance, self.wpt_reach):
 
         #     circle_x = ((np.cos(np.deg2rad(qdr)) * dis)/max_distance)*self.window_width
