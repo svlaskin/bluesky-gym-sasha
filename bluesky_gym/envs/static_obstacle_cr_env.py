@@ -43,8 +43,8 @@ RESTRICTED_AREA_INTRUSION_PENALTY = -1
 NUM_INTRUDERS = 5
 INTRUSION_DISTANCE = 5 # NM
 
-WAYPOINT_DISTANCE_MIN = 5 # KM
-WAYPOINT_DISTANCE_MAX = 170 # KM
+WAYPOINT_DISTANCE_MIN = 180 # KM
+WAYPOINT_DISTANCE_MAX = 400 # KM
 
 OBSTACLE_DISTANCE_MIN = 20 # KM
 OBSTACLE_DISTANCE_MAX = 150 # KM
@@ -53,10 +53,12 @@ OTHER_AC_DISTANCE_MIN = 50 # KM
 OTHER_AC_DISTANCE_MAX = 170 # KM
 
 D_HEADING = 45 #degrees
+D_SPEED = 20 # kts (check)
 
 AC_SPD = 150 # kts
 
 NM2KM = 1.852
+KTS2MS = 1.94384
 
 ACTION_FREQUENCY = 10
 
@@ -70,7 +72,7 @@ NUM_WAYPOINTS = NUM_OTHER_AIRCRAFT + 1
 POLY_AREA_RANGE = (50, np.random.randint(100,200)) # In NM^2
 CENTER = (51.990426702297746, 4.376124857109851) # TU Delft AE Faculty coordinates
 
-MAX_DISTANCE = 400 # width of screen in km
+MAX_DISTANCE = 350 # width of screen in km
 
 class StaticObstacleCREnv(gym.Env):
     """ 
@@ -89,7 +91,7 @@ class StaticObstacleCREnv(gym.Env):
         # Observation space should include ownship and intruder info, end destination info for ownship, relative position of obstcles in reference to ownships
         # Maybe later also have an option for CNN based intruder and obstacle info, could be interesting
         self.observation_space = spaces.Dict(
-            {
+            {   
                 "intruder_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
                 "intruder_cos_difference_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
                 "intruder_sin_difference_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_INTRUDERS,), dtype=np.float64),
@@ -98,14 +100,14 @@ class StaticObstacleCREnv(gym.Env):
                 "destination_waypoint_distance": spaces.Box(-np.inf, np.inf, shape = (1,), dtype=np.float64),
                 "destination_waypoint_cos_drift": spaces.Box(-np.inf, np.inf, shape = (1,), dtype=np.float64),
                 "destination_waypoint_sin_drift": spaces.Box(-np.inf, np.inf, shape = (1,), dtype=np.float64),
-                # "restricted_area_intrusion": spaces.Box(0, 1, shape = (1,), dtype=np.float64),
+                "restricted_area_radius": spaces.Box(0, 1, shape = (NUM_OBSTACLES,), dtype=np.float64),
                 "restricted_area_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_OBSTACLES, ), dtype=np.float64),
                 "cos_difference_restricted_area_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_OBSTACLES,), dtype=np.float64),
                 "sin_difference_restricted_area_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_OBSTACLES,), dtype=np.float64)
             }
         )
        
-        self.action_space = spaces.Box(-1, 1, shape=(1,), dtype=np.float64)
+        self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=np.float64)
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -124,6 +126,7 @@ class StaticObstacleCREnv(gym.Env):
         super().reset(seed=seed)
         
         bs.traf.reset()
+        self.counter = 0
 
         bs.traf.cre('KL001',actype="A320",acspd=AC_SPD)
 
@@ -154,7 +157,7 @@ class StaticObstacleCREnv(gym.Env):
         return observation, info
     
     def step(self, action):
-        
+        self.counter += 1
         self._get_action(action)
 
         action_frequency = ACTION_FREQUENCY
@@ -273,7 +276,7 @@ class StaticObstacleCREnv(gym.Env):
             while check_inside_var:
                 loop_counter+= 1
                 if i == 0:
-                    wpt_dis_init = np.random.randint(100, WAYPOINT_DISTANCE_MAX)
+                    wpt_dis_init = np.random.randint(100, 170)
                 else:
                     wpt_dis_init = np.random.randint(WAYPOINT_DISTANCE_MIN, WAYPOINT_DISTANCE_MAX)
                 wpt_hdg_init = np.random.randint(0, 360)
@@ -365,7 +368,6 @@ class StaticObstacleCREnv(gym.Env):
             # ac_idx = bs.traf.id2idx(obj0[i])
             # planned_path_other_aircraft = path_plan.det_path_planning(obj1[ac_idx], obj2[ac_idx], obj3[ac_idx], obj4[ac_idx]/kts, obj5[i+1], obj6[i+1], obj7)
             
-
             self.planned_path_other_aircraft.append(planned_path_other_aircraft)
 
             for element in planned_path_other_aircraft:
@@ -396,6 +398,11 @@ class StaticObstacleCREnv(gym.Env):
         
         self.ac_hdg = bs.traf.hdg[ac_idx]
         
+        '''used for debugging'''
+        # other aircraft destination waypoints
+        self.other_ac_destination_waypoint_distance = []
+        '''END used for debugging'''
+
         # intruders observation
         for i in range(NUM_INTRUDERS):
             int_idx = i+1
@@ -433,6 +440,13 @@ class StaticObstacleCREnv(gym.Env):
         self.destination_waypoint_cos_drift.append(np.cos(np.deg2rad(drift)))
         self.destination_waypoint_sin_drift.append(np.sin(np.deg2rad(drift)))
 
+        '''used for debugging'''
+        # other aircraft destination waypoints
+        for i in range(NUM_OTHER_AIRCRAFT):
+            other_ac_idx = i+1
+            wpt_qdr, wpt_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[other_ac_idx], bs.traf.lon[other_ac_idx], self.wpt_lat[other_ac_idx], self.wpt_lon[other_ac_idx])
+            self.other_ac_destination_waypoint_distance.append(wpt_dis * NM2KM)
+        '''END used for debugging'''
 
         # obstacles observations
         
@@ -457,10 +471,10 @@ class StaticObstacleCREnv(gym.Env):
                 "destination_waypoint_cos_drift": np.array(self.destination_waypoint_cos_drift),
                 "destination_waypoint_sin_drift": np.array(self.destination_waypoint_sin_drift),
                 # observations on obstacles
+                "restricted_area_radius": np.array(self.obstacle_radius)/WAYPOINT_DISTANCE_MAX,
                 "restricted_area_distance": np.array(self.obstacle_centre_distance)/WAYPOINT_DISTANCE_MAX,
                 "cos_difference_restricted_area_pos": np.array(self.obstacle_centre_cos_bearing),
                 "sin_difference_restricted_area_pos": np.array(self.obstacle_centre_sin_bearing),
-
             }
 
         return observation
@@ -485,7 +499,7 @@ class StaticObstacleCREnv(gym.Env):
 
         total_reward = reach_reward + drift_reward + intrusion_other_ac_reward + intrusion_reward
 
-        if 0 in self.wpt_reach:
+        if self.wpt_reach[0] == 0:
             return total_reward, 0
         else:
             return total_reward, 1
@@ -501,6 +515,14 @@ class StaticObstacleCREnv(gym.Env):
             else:
                 reward += 0
                 index += 1
+        
+        
+        for other_ac_wpt_reach_idx in range(len(self.wpt_reach)-1):
+            # for distance in self.other_ac_destination_waypoint_distance:            
+            if self.other_ac_destination_waypoint_distance[other_ac_wpt_reach_idx] < DISTANCE_MARGIN and self.wpt_reach[other_ac_wpt_reach_idx+1] != 1:
+                self.wpt_reach[other_ac_wpt_reach_idx+1] = 1
+                # green(self.counter)
+
         return reward
 
     def _check_drift(self):
@@ -530,10 +552,10 @@ class StaticObstacleCREnv(gym.Env):
 
     def _get_action(self,action):
             
-            action = self.ac_hdg + action * D_HEADING
-            # action = self.ac_tas + action * 
-            bs.stack.stack(f"HDG KL001 {action[0]}")
-            # bs.stack.stack(f"HDG KL001 {action[0]}")
+            action_hdg = self.ac_hdg + action[0] * D_HEADING
+            action_spd = self.ac_tas/KTS2MS + action[1] * D_SPEED
+            bs.stack.stack(f"HDG KL001 {action_hdg}")
+            bs.stack.stack(f"SPD KL001 {action_spd}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
@@ -553,8 +575,8 @@ class StaticObstacleCREnv(gym.Env):
         # draw ownship
         ac_idx = bs.traf.id2idx('KL001')
         ac_length = 8
-        heading_end_x = ((np.cos(np.deg2rad(self.ac_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
-        heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
+        heading_end_x = ((np.sin(np.deg2rad(self.ac_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
+        heading_end_y = ((np.cos(np.deg2rad(self.ac_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
         # print(self.window_width/2, self.window_height/2)
         # pygame.draw.line(canvas,
         #     (0,0,0),
@@ -578,8 +600,8 @@ class StaticObstacleCREnv(gym.Env):
 
         # draw heading line
         heading_length = 50
-        heading_end_x = ((np.cos(np.deg2rad(self.ac_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
-        heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
+        heading_end_x = ((np.sin(np.deg2rad(self.ac_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
+        heading_end_y = ((np.cos(np.deg2rad(self.ac_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
 
         pygame.draw.line(canvas,
             (0,0,0),
@@ -609,8 +631,8 @@ class StaticObstacleCREnv(gym.Env):
         for i in range(NUM_INTRUDERS):
             int_idx = i+1
             int_hdg = bs.traf.hdg[int_idx]
-            heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
-            heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
+            heading_end_x = ((np.sin(np.deg2rad(int_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
+            heading_end_y = ((np.cos(np.deg2rad(int_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
 
             int_qdr, int_dis = bs.tools.geo.kwikqdrdist(screen_coords[0], screen_coords[1], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
 
@@ -632,8 +654,8 @@ class StaticObstacleCREnv(gym.Env):
 
             # draw heading line
             heading_length = 10
-            heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
-            heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
+            heading_end_x = ((np.sin(np.deg2rad(int_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
+            heading_end_y = ((np.cos(np.deg2rad(int_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
 
             pygame.draw.line(canvas,
                 color,
