@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # Create the environment
     env = gym.make('StaticObstacleCREnv-v0', render_mode='human')
 
-    obs, info = env.reset()
+    # obs, info = env.reset()
 
     # Create the model
     model = PPO("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)

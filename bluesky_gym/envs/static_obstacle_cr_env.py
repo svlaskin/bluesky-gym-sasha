@@ -70,7 +70,7 @@ NUM_WAYPOINTS = NUM_OTHER_AIRCRAFT + 1
 POLY_AREA_RANGE = (50, np.random.randint(100,200)) # In NM^2
 CENTER = (51.990426702297746, 4.376124857109851) # TU Delft AE Faculty coordinates
 
-
+MAX_DISTANCE = 400 # width of screen in km
 
 class StaticObstacleCREnv(gym.Env):
     """ 
@@ -105,12 +105,7 @@ class StaticObstacleCREnv(gym.Env):
             }
         )
        
-        self.action_space = spaces.Dict(
-            {
-                "heading": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
-                # "speed": spaces.Box(-1, 1, shape=(1,), dtype=np.float64)
-            }
-        )
+        self.action_space = spaces.Box(-1, 1, shape=(1,), dtype=np.float64)
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -132,6 +127,15 @@ class StaticObstacleCREnv(gym.Env):
 
         bs.traf.cre('KL001',actype="A320",acspd=AC_SPD)
 
+        # defining screen coordinates
+        # defining the reference point as the top left corner of the SQUARE screen
+        # from the initial position of the aircraft which is set to be the centre of the screen
+        ac_idx = bs.traf.id2idx('KL001')
+        d = np.sqrt(2*(MAX_DISTANCE/2)**2) #KM
+        lat_ref_point,lon_ref_point = bs.tools.geo.kwikpos(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], 315, d/NM2KM)
+        
+        self.screen_coords = [lat_ref_point,lon_ref_point]#[52.9, 2.6]
+
         self._generate_obstacles()
 
         self._generate_other_aircraft()
@@ -142,12 +146,10 @@ class StaticObstacleCREnv(gym.Env):
 
         observation = self._get_obs()
 
-
         info = self._get_info()
 
         if self.render_mode == "human":
             self._render_frame()
-
 
         return observation, info
     
@@ -346,7 +348,7 @@ class StaticObstacleCREnv(gym.Env):
             obj7 = self.obstacle_vertices
             pickle.dump([obj0, obj1, obj2, obj3, obj4, obj5, obj6, obj7], f)
 
-        # Getting back the objects:
+        # # Getting back the objects:
         # with open('objs-bugs-v4.pkl', 'rb') as f:  # Python 3: open(..., 'rb')
         #     obj0, obj1, obj2, obj3, obj4, obj5, obj6, obj7 = pickle.load(f)
 
@@ -502,7 +504,7 @@ class StaticObstacleCREnv(gym.Env):
         return reward
 
     def _check_drift(self):
-        return abs(np.deg2rad(self.drift[0])) * DRIFT_PENALTY
+        return abs(np.deg2rad(self.destination_waypoint_drift[0])) * DRIFT_PENALTY
 
     def _check_intrusion_other_ac(self):
         ac_idx = bs.traf.id2idx('KL001')
@@ -518,8 +520,7 @@ class StaticObstacleCREnv(gym.Env):
     def _check_intrusion(self):
         ac_idx = bs.traf.id2idx('KL001')
         reward = 0
-        for i in range(NUM_OBSTACLES):
-            obs_idx = i+1
+        for obs_idx in range(NUM_OBSTACLES):
             _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.obstacle_centre_lat[obs_idx], self.obstacle_centre_lon[obs_idx])
             if int_dis < INTRUSION_DISTANCE:
                 reward += RESTRICTED_AREA_INTRUSION_PENALTY
@@ -544,18 +545,7 @@ class StaticObstacleCREnv(gym.Env):
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        ## BUG!!! ATC EACH ITERATION, THE REFERENCE POSITION WHICH SHOULD BE DEFINED FROM THE INITIAL POSITION OF THE ACTOR WILL CHANGE FOLLOWING THE CHANGE IN POSITION OF THE ACTOR
-        max_distance = 400 # width of screen in km
-            
-        # defining the reference point as the top left corner of the SQUARE screen
-        # from the initial position of the aircraft which is set to be the centre of the screen
-
-        ac_idx = bs.traf.id2idx('KL001')
-        d = np.sqrt(2*(max_distance/2)**2) #KM
-        lat_ref_point,lon_ref_point = bs.tools.geo.kwikpos(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], 315, d/NM2KM)
-        
-        screen_coords = [lat_ref_point,lon_ref_point]#[52.9, 2.6]
-        
+        screen_coords = self.screen_coords
 
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235))
@@ -563,8 +553,8 @@ class StaticObstacleCREnv(gym.Env):
         # draw ownship
         ac_idx = bs.traf.id2idx('KL001')
         ac_length = 8
-        heading_end_x = ((np.cos(np.deg2rad(self.ac_hdg)) * ac_length)/max_distance)*self.window_width
-        heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * ac_length)/max_distance)*self.window_width
+        heading_end_x = ((np.cos(np.deg2rad(self.ac_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
+        heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
         # print(self.window_width/2, self.window_height/2)
         # pygame.draw.line(canvas,
         #     (0,0,0),
@@ -576,8 +566,8 @@ class StaticObstacleCREnv(gym.Env):
 
         qdr, dis = bs.tools.geo.kwikqdrdist(screen_coords[0], screen_coords[1], bs.traf.lat[ac_idx], bs.traf.lon[ac_idx])
         dis = dis*NM2KM
-        x_actor = ((np.sin(np.deg2rad(qdr))*dis)/max_distance)*self.window_width
-        y_actor = ((-np.cos(np.deg2rad(qdr))*dis)/max_distance)*self.window_width
+        x_actor = ((np.sin(np.deg2rad(qdr))*dis)/MAX_DISTANCE)*self.window_width
+        y_actor = ((-np.cos(np.deg2rad(qdr))*dis)/MAX_DISTANCE)*self.window_width
 
         pygame.draw.line(canvas,
             (235, 52, 52),
@@ -588,8 +578,8 @@ class StaticObstacleCREnv(gym.Env):
 
         # draw heading line
         heading_length = 50
-        heading_end_x = ((np.cos(np.deg2rad(self.ac_hdg)) * heading_length)/max_distance)*self.window_width
-        heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * heading_length)/max_distance)*self.window_width
+        heading_end_x = ((np.cos(np.deg2rad(self.ac_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
+        heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
 
         pygame.draw.line(canvas,
             (0,0,0),
@@ -606,8 +596,8 @@ class StaticObstacleCREnv(gym.Env):
                 lon_ref = coord[1]
                 qdr, dis = bs.tools.geo.kwikqdrdist(screen_coords[0], screen_coords[1], lat_ref, lon_ref)
                 dis = dis*NM2KM
-                x_ref = (np.sin(np.deg2rad(qdr))*dis)/max_distance*self.window_width
-                y_ref = (-np.cos(np.deg2rad(qdr))*dis)/max_distance*self.window_width
+                x_ref = (np.sin(np.deg2rad(qdr))*dis)/MAX_DISTANCE*self.window_width
+                y_ref = (-np.cos(np.deg2rad(qdr))*dis)/MAX_DISTANCE*self.window_width
                 points.append((x_ref, y_ref))
             pygame.draw.polygon(canvas,
                 (0,0,0), points
@@ -619,8 +609,8 @@ class StaticObstacleCREnv(gym.Env):
         for i in range(NUM_INTRUDERS):
             int_idx = i+1
             int_hdg = bs.traf.hdg[int_idx]
-            heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
-            heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
+            heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
+            heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * ac_length)/MAX_DISTANCE)*self.window_width
 
             int_qdr, int_dis = bs.tools.geo.kwikqdrdist(screen_coords[0], screen_coords[1], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
 
@@ -630,8 +620,8 @@ class StaticObstacleCREnv(gym.Env):
             else: 
                 color = (80,80,80)
 
-            x_pos = (np.sin(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_width
-            y_pos = -(np.cos(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_height
+            x_pos = (np.sin(np.deg2rad(int_qdr))*(int_dis * NM2KM)/MAX_DISTANCE)*self.window_width
+            y_pos = -(np.cos(np.deg2rad(int_qdr))*(int_dis * NM2KM)/MAX_DISTANCE)*self.window_height
 
             pygame.draw.line(canvas,
                 color,
@@ -642,8 +632,8 @@ class StaticObstacleCREnv(gym.Env):
 
             # draw heading line
             heading_length = 10
-            heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * heading_length)/max_distance)*self.window_width
-            heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * heading_length)/max_distance)*self.window_width
+            heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
+            heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * heading_length)/MAX_DISTANCE)*self.window_width
 
             pygame.draw.line(canvas,
                 color,
@@ -656,7 +646,7 @@ class StaticObstacleCREnv(gym.Env):
                 canvas, 
                 color,
                 (x_pos,y_pos),
-                radius = (INTRUSION_DISTANCE*NM2KM/max_distance)*self.window_width,
+                radius = (INTRUSION_DISTANCE*NM2KM/MAX_DISTANCE)*self.window_width,
                 width = 2
             )
 
@@ -670,8 +660,8 @@ class StaticObstacleCREnv(gym.Env):
             indx += 1
             qdr, dis = bs.tools.geo.kwikqdrdist(screen_coords[0], screen_coords[1], lat, lon)
 
-            circle_x = ((np.sin(np.deg2rad(qdr)) * dis * NM2KM)/max_distance)*self.window_width
-            circle_y = (-(np.cos(np.deg2rad(qdr)) * dis * NM2KM)/max_distance)*self.window_width
+            circle_x = ((np.sin(np.deg2rad(qdr)) * dis * NM2KM)/MAX_DISTANCE)*self.window_width
+            circle_y = (-(np.cos(np.deg2rad(qdr)) * dis * NM2KM)/MAX_DISTANCE)*self.window_width
 
 
             if reach:
@@ -696,7 +686,7 @@ class StaticObstacleCREnv(gym.Env):
                 canvas, 
                 color,
                 (circle_x,circle_y),
-                radius = (DISTANCE_MARGIN/max_distance)*self.window_width,
+                radius = (DISTANCE_MARGIN/MAX_DISTANCE)*self.window_width,
                 width = 2
             )
 

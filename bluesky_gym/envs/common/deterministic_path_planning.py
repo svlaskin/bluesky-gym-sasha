@@ -57,11 +57,11 @@ def det_path_planning(lat0, lon0, altitude, TAS, latdest, londest, inputObs):
 
     #################################################################
     # plot direct route
-    pltdirectrt             = 1
+    pltdirectrt             = 0
     # plot all trial solutions
-    plttrialsols            = 1
+    plttrialsols            = 0
     # plot final incumbent
-    pltfinalsol             = 1
+    pltfinalsol             = 0
     #################################################################
 
     # READ-IN & INTERPRET AVAILABLE PARAMETERS
