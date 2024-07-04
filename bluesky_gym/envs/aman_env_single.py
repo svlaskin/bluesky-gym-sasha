@@ -298,8 +298,11 @@ class AmanEnvS(gym.Env):
     #         bs.stack.stack(f"HDG KL001 {action[0]}")
 
     def _get_action(self,action):
-        action[0] = self.ac_spd + action[0] * D_SPEED
-        action[1] = self.ac_hdg + action[1] * D_HEADING
+        action_speed = self.ac_spd + action[0] * D_SPEED
+        action_heading = self.ac_hdg + action[1] * D_HEADING
+
+        bs.stack.stack(f"KL001 SPD {action_speed}")
+        bs.stack.stack(f"KL001 HDG {action_heading}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
