@@ -13,6 +13,9 @@ DISTANCE_MARGIN = 5 # km
 NM2KM = 1.852
 
 INTRUSION_PENALTY = -50
+ALT_DIF_REWARD_SCALE = -5/3000
+CRASH_PENALTY = -100
+RWY_ALT_DIF_REWARD_SCALE = -50/3000
 
 NUM_INTRUDERS = 3
 INTRUSION_DISTANCE = 5 # NM
@@ -25,12 +28,11 @@ VZ_MEAN = 0
 VZ_STD = 5
 RWY_DIS_MEAN = 100
 RWY_DIS_STD = 200
+DEFAULT_RWY_DIS = 200 
+RWY_LAT = 52
+RWY_LON = 4
 
-ACTION_2_MS = 12.5
-
-ALT_DIF_REWARD_SCALE = -5/3000
-CRASH_PENALTY = -100
-RWY_ALT_DIF_REWARD_SCALE = -50/3000
+ACTION_2_MS = 12.5  # approx 2500 ft/min
 
 ALT_MIN = 2000
 ALT_MAX = 4000
@@ -114,11 +116,6 @@ class VerticalCREnv(gym.Env):
         Very crude normalization in place for now
         """
 
-        DEFAULT_RWY_DIS = 200 
-        RWY_LAT = 52
-        RWY_LON = 4
-        NM2KM = 1.852
-
         ac_idx = bs.traf.id2idx('KL001')
 
         self.intruder_distance = []
@@ -141,12 +138,6 @@ class VerticalCREnv(gym.Env):
 
             alt_dif = bs.traf.alt[int_idx] - self.altitude
             vz_dif = bs.traf.vs[int_idx] - self.vz
-            
-            # print(bs.traf.vs[int_idx])
-
-            # if abs(bs.traf.vs[int_idx]>2.0):
-            #     import code
-            #     code.interact(local=locals())
 
             self.altitude_difference.append(alt_dif)
             self.z_difference_speed.append(vz_dif)
@@ -163,7 +154,6 @@ class VerticalCREnv(gym.Env):
 
             self.x_difference_speed.append(x_dif)
             self.y_difference_speed.append(y_dif)
-        
         
         self.runway_distance = (DEFAULT_RWY_DIS - bs.tools.geo.kwikdist(RWY_LAT,RWY_LON,bs.traf.lat[0],bs.traf.lon[0])*NM2KM)
 
@@ -192,11 +182,17 @@ class VerticalCREnv(gym.Env):
     
     def _generate_conflicts(self, acid = 'KL001'):
         target_idx = bs.traf.id2idx(acid)
+        altitude = bs.traf.alt[target_idx]
+        spd = bs.traf.gs[target_idx]
         for i in range(NUM_INTRUDERS):
             dpsi = np.random.randint(45,315)
             cpa = np.random.randint(0,INTRUSION_DISTANCE)
-            tlosh = np.random.randint(100,1000)
-            dH = np.random.randint(-1000,-1)
+            tlosh = np.random.randint(100,int((DEFAULT_RWY_DIS*0.9)*1000/spd))
+            average_tod = (DEFAULT_RWY_DIS*1000/spd) - 2*self.target_alt/ACTION_2_MS
+            if tlosh > average_tod:
+                dH = np.random.randint(int(-altitude + 500),int((self.target_alt - altitude) + 100))
+            else:
+                dH = np.random.randint(int((self.target_alt - altitude) - 500),int((self.target_alt - altitude) + 500))
             tlosv = 100000000000.
 
             bs.traf.creconfs(acid=f'{i}',actype="A320",targetidx=target_idx,dpsi=dpsi,dcpa=cpa,tlosh=tlosh,dH=dH,tlosv=tlosv)
@@ -263,7 +259,6 @@ class VerticalCREnv(gym.Env):
         
         super().reset(seed=seed)
         bs.traf.reset()
-        
         # reset episodic logging variables
         self.total_reward = 0
         self.total_intrusions = 0
@@ -292,6 +287,7 @@ class VerticalCREnv(gym.Env):
         action_frequency = ACTION_FREQUENCY
         for i in range(action_frequency):
             bs.sim.step()
+            self.time += 1
             if self.render_mode == "human":
                 self._render_frame()
                 observation = self._get_obs()
