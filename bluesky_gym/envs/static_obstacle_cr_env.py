@@ -69,7 +69,7 @@ NUM_OTHER_AIRCRAFT = 5
 ## number of waypoints coincides with the number of destinations for each aircraft (actor and all other aircraft)
 NUM_WAYPOINTS = NUM_OTHER_AIRCRAFT + 1
 
-POLY_AREA_RANGE = (50, np.random.randint(100,200)) # In NM^2
+POLY_AREA_RANGE = (50, 1000) # In NM^2
 CENTER = (51.990426702297746, 4.376124857109851) # TU Delft AE Faculty coordinates
 
 MAX_DISTANCE = 350 # width of screen in km
@@ -206,15 +206,14 @@ class StaticObstacleCREnv(gym.Env):
                 for j in range(NUM_OBSTACLES):
                     inside_temp.append(bs.tools.areafilter.checkInside(self.obstacle_names[j], bs.traf.lat, bs.traf.lon, bs.traf.alt)[-1])
 
-                    check_if_inside_obs = any(x == True for x in inside_temp)
+                check_if_inside_obs = any(x == True for x in inside_temp)
 
                 if loop_counter > 1000:
                     raise Exception("No aircraft can be generated outside the obstacles. Check the parameters of the obstacles in the definition of the scenario.")
 
     def _generate_polygon(self, centre):
-        
-        R = np.sqrt(POLY_AREA_RANGE[1] / np.pi)
-        red(R)
+        poly_area = np.random.randint(POLY_AREA_RANGE[0], POLY_AREA_RANGE[1])
+        R = np.sqrt(poly_area/ np.pi)
         p = [fn.random_point_on_circle(R) for _ in range(3)] # 3 random points to start building the polygon
         p = fn.sort_points_clockwise(p)
         p_area = fn.polygon_area(p)
