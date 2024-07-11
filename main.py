@@ -8,15 +8,16 @@ import numpy as np
 
 import bluesky_gym
 import bluesky_gym.envs
+import time
 
 bluesky_gym.register_envs()
 
-TRAIN = True
+TRAIN = False
 EVAL_EPISODES = 10
 
 if __name__ == "__main__":
     # Create the environment
-    env = gym.make('PolygonCREnv-v0', render_mode="human")
+    env = gym.make('PolygonCREnv-v0', render_mode="human", ac_density_mode="normal")
     obs, info = env.reset()
 
     # Create the model
@@ -32,21 +33,19 @@ if __name__ == "__main__":
     
     # Test the trained model
 
-    model = PPO.load("models/PolygonCREnv-v0_ppo/model", env=env)
-    env = gym.make('PolygonCREnv-v0', render_mode="human")
+    #model = PPO.load("models/PolygonCREnv-v0_ppo/model", env=env)
+    env = gym.make('PolygonCREnv-v0', render_mode="human", ac_density_mode="normal")
 
     for i in range(EVAL_EPISODES):
+        start  = time.time()
         done = truncated = False
         obs, info = env.reset()
         tot_rew = 0
         while not (done or truncated):
             # Predict
-            action, _states = model.predict(obs, deterministic=True)
+            #action, _states = model.predict(obs, deterministic=True)
+            action  = np.array([0,0])
             # Get reward
             obs, reward, done, truncated, info = env.step(action[()])
             tot_rew += reward
-
-        print(tot_rew)
-
-
     env.close()

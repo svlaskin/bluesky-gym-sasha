@@ -8,8 +8,10 @@ import bluesky_gym.envs.common.functions as fn
 import gymnasium as gym
 from gymnasium import spaces
 
-AC_DENSITY_RANGE = (0.01, 0.04) # In AC/NM^2
-POLY_AREA_RANGE = (1500, 2500) # In NM^2
+AC_DENSITY_RANGE = (0.005, 0.015) # In AC/NM^2
+AC_DENSITY_MU = 0.005 # In AC/NM^2
+AC_DENSITY_SIGMA = 0.0025 # In AC/NM^2
+POLY_AREA_RANGE = (1500, 1600) # In NM^2
 CENTER = np.array([51.990426702297746, 4.376124857109851]) # TU Delft AE Faculty coordinates
 ALTITUDE = 350 # In FL
 
@@ -40,11 +42,14 @@ class PolygonCREnv(gym.Env):
     """
     metadata = {"render_modes": ["rgb_array","human"], "render_fps": 120}
     
-    def __init__(self, render_mode=None):
+    def __init__(self, render_mode=None, ac_density_mode="normal"):
         self.window_width = 512
         self.window_height = 512
         self.window_size = (self.window_width, self.window_height) # Size of the rendered environment
+        self.density_mode = ac_density_mode
+        self.reset_counter = 0
         self.poly_name = 'airspace'
+        # Feel free to add more observation spaces
         self.BasicAbs = spaces.Dict(
             {
                 "cos(drift)": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
@@ -90,12 +95,19 @@ class PolygonCREnv(gym.Env):
         self.clock = None
     
     def reset(self, seed=None, options=None):
-        bs.sim.reset()
+        bs.traf.reset()
+        bs.tools.areafilter.deleteArea(self.poly_name)
         super().reset(seed=seed)
        
         self._generate_polygon() # Create airspace polygon
         
-        self.num_ac = int(max(np.ceil(np.random.uniform(*AC_DENSITY_RANGE) * self.poly_area), NUM_AC_STATE+1)) # Get total number of AC in the airspace including agent (min = 3)
+        if self.density_mode == "normal":
+            rand_density = np.random.normal(AC_DENSITY_MU, AC_DENSITY_SIGMA)
+            self.num_ac = int(max(np.ceil(rand_density * self.poly_area), NUM_AC_STATE+1)) # Get total number of AC in the airspace including agent (min = 3)
+        else:
+            rand_density = np.random.uniform(*AC_DENSITY_RANGE)
+            self.num_ac = int(max(np.ceil(rand_density * self.poly_area), NUM_AC_STATE+1)) # Get total number of AC in the airspace including agent (min = 3)
+        
         self._generate_waypoints() # Create waypoints for aircraft
         self._generate_ac() # Create aircraft in the airspace
 
@@ -110,12 +122,14 @@ class PolygonCREnv(gym.Env):
         if self.render_mode == "human":
             self._render_frame()
 
+        self.reset_counter += 1
+
         return observation, info
     
     def step(self, action):
         self._get_action(action)
         action_frequency = ACTION_FREQUENCY
-        for i in range(action_frequency):
+        for _ in range(action_frequency):
             bs.sim.step()
             if self.render_mode == "human":
                 # Observation vector dependent on type chosen
@@ -144,12 +158,13 @@ class PolygonCREnv(gym.Env):
         p = [fn.random_point_on_circle(R) for _ in range(3)] # 3 random points to start building the polygon
         p = fn.sort_points_clockwise(p)
         p_area = fn.polygon_area(p)
-        self.poly_area = p_area
         
         while p_area < POLY_AREA_RANGE[0]:
             p.append(fn.random_point_on_circle(R))
             p = fn.sort_points_clockwise(p)
             p_area = fn.polygon_area(p)
+        
+        self.poly_area = p_area
         
         self.poly_points = np.array(p) # Polygon vertices are saved in terms of NM
         
