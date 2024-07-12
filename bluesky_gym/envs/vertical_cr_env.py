@@ -287,7 +287,6 @@ class VerticalCREnv(gym.Env):
         action_frequency = ACTION_FREQUENCY
         for i in range(action_frequency):
             bs.sim.step()
-            self.time += 1
             if self.render_mode == "human":
                 self._render_frame()
                 observation = self._get_obs()
