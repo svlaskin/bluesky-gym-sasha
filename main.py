@@ -18,7 +18,7 @@ from scripts.common import logger
 
 bluesky_gym.register_envs()
 
-env_name = 'DescentEnv-v0'
+env_name = 'VerticalCREnv-v0'
 algorithm = TD3
 
 # Initialize logger
@@ -40,15 +40,15 @@ if __name__ == "__main__":
     env.close()
     
     # Test the trained model
-    # model = algorithm.load(f"models/{env_name}_{str(algorithm.__name__)}/model", env=env)
+    model = algorithm.load(f"models/{env_name}_{str(algorithm.__name__)}/model", env=env)
     env = gym.make(env_name, render_mode="human")
     for i in range(EVAL_EPISODES):
         done = truncated = False
         obs, info = env.reset()
         tot_rew = 0
         while not (done or truncated):
-            action = np.array(np.random.randint(-10,10)/100)
-            # action, _states = model.predict(obs, deterministic=True)
+            # action = np.array(np.random.randint(-10,10)/100)
+            action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, truncated, info = env.step(action[()])
             tot_rew += reward
         print(tot_rew)
