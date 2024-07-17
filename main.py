@@ -1,51 +1,56 @@
 """
-This file trains a model using the PlanWaypointEnv-V0 example environment
+This file is an example train and test loop for the different environments.
+Selecting different environments is done through setting the 'env_name' variable.
+
+TODO:
+* add rgb_array rendering for the different environments to allow saving videos
 """
 
 import gymnasium as gym
-from stable_baselines3 import SAC
+from stable_baselines3 import PPO, SAC, TD3, DDPG
+
 import numpy as np
 
 import bluesky_gym
 import bluesky_gym.envs
-import time
+
+from scripts.common import logger
 
 bluesky_gym.register_envs()
 
-TRAIN = False
+env_name = 'PolygonCREnv-v0'
+algorithm = TD3
+
+# Initialize logger
+log_dir = f'./logs/{env_name}/'
+file_name = f'{env_name}_{str(algorithm.__name__)}.csv'
+csv_logger_callback = logger.CSVLoggerCallback(log_dir, file_name)
+
+TRAIN = True
 EVAL_EPISODES = 10
 
 if __name__ == "__main__":
-    # Create the environment
-    env = gym.make('PolygonCREnv-v0', render_mode=None, ac_density_mode="normal")
+    env = gym.make(env_name, render_mode=None)
     obs, info = env.reset()
-
-    # Create the model
-    model = SAC("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
-
-    # Train the model
+    model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
     if TRAIN:
-        model.learn(total_timesteps=int(20e5))
-        model.save("models/PolygonCREnv-sac/model")
+        model.learn(total_timesteps=2e6, callback=csv_logger_callback)
+        model.save(f"models/{env_name}_{str(algorithm.__name__)}/model")
         del model
-    
     env.close()
     
     # Test the trained model
-
-    #model = PPO.load("models/PolygonCREnv-v0_ppo/model", env=env)
-    env = gym.make('PolygonCREnv-v0', render_mode="human", ac_density_mode="normal")
-
+    model = algorithm.load(f"models/{env_name}_{str(algorithm.__name__)}/model", env=env)
+    env = gym.make(env_name, render_mode="human")
     for i in range(EVAL_EPISODES):
-        start  = time.time()
+
         done = truncated = False
         obs, info = env.reset()
         tot_rew = 0
         while not (done or truncated):
-            # Predict
-            #action, _states = model.predict(obs, deterministic=True)
-            action  = np.array([0,1])
-            # Get reward
+            # action = np.array(np.random.randint(-10,10)/100)
+            action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, truncated, info = env.step(action[()])
             tot_rew += reward
+        print(tot_rew)
     env.close()
