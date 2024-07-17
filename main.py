@@ -3,7 +3,7 @@ This file trains a model using the PlanWaypointEnv-V0 example environment
 """
 
 import gymnasium as gym
-from stable_baselines3 import PPO
+from stable_baselines3 import SAC
 import numpy as np
 
 import bluesky_gym
@@ -17,16 +17,16 @@ EVAL_EPISODES = 10
 
 if __name__ == "__main__":
     # Create the environment
-    env = gym.make('PolygonCREnv-v0', render_mode="human", ac_density_mode="normal")
+    env = gym.make('PolygonCREnv-v0', render_mode=None, ac_density_mode="normal")
     obs, info = env.reset()
 
     # Create the model
-    model = PPO("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
+    model = SAC("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
 
     # Train the model
     if TRAIN:
         model.learn(total_timesteps=int(20e5))
-        model.save("models/PolygonCREnv-v0_ppo/model")
+        model.save("models/PolygonCREnv-sac/model")
         del model
     
     env.close()
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         while not (done or truncated):
             # Predict
             #action, _states = model.predict(obs, deterministic=True)
-            action  = np.array([0,0])
+            action  = np.array([0,1])
             # Get reward
             obs, reward, done, truncated, info = env.step(action[()])
             tot_rew += reward

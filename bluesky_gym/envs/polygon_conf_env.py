@@ -11,7 +11,7 @@ from gymnasium import spaces
 AC_DENSITY_RANGE = (0.005, 0.015) # In AC/NM^2
 AC_DENSITY_MU = 0.005 # In AC/NM^2
 AC_DENSITY_SIGMA = 0.0025 # In AC/NM^2
-POLY_AREA_RANGE = (1500, 1600) # In NM^2
+POLY_AREA_RANGE = (2400, 3750) # In NM^2
 CENTER = np.array([51.990426702297746, 4.376124857109851]) # TU Delft AE Faculty coordinates
 ALTITUDE = 350 # In FL
 
@@ -29,8 +29,8 @@ INTRUSION_DISTANCE = 5 # NM
 
 
 # Model parameters
-ACTION_FREQUENCY = 10
-NUM_AC_STATE = 2
+ACTION_FREQUENCY = 5
+NUM_AC_STATE = 4
 DRIFT_PENALTY = -0.1
 INTRUSION_PENALTY = -1
 D_HEADING = 22.5 # deg
@@ -50,21 +50,7 @@ class PolygonCREnv(gym.Env):
         self.reset_counter = 0
         self.poly_name = 'airspace'
         # Feel free to add more observation spaces
-        self.BasicAbs = spaces.Dict(
-            {
-                "cos(drift)": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
-                "sin(drift)": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
-                "x": spaces.Box(-np.inf, np.inf, shape=(1,), dtype=np.float64),
-                "y": spaces.Box(-np.inf, np.inf, shape=(1,), dtype=np.float64),
-                "vx": spaces.Box(-np.inf, np.inf, shape=(1,), dtype=np.float64),
-                "vy": spaces.Box(-np.inf, np.inf, shape=(1,), dtype=np.float64),
-                "x_int": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
-                "y_int": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
-                "vx_int": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
-                "vy_int": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64)
-            }
-        )
-        self.Local = spaces.Dict(
+        self.observation_space = spaces.Dict(
             {
                 "cos(drift)": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
                 "sin(drift)": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
@@ -78,7 +64,7 @@ class PolygonCREnv(gym.Env):
                 "distances": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64)
             }
         )
-        self.observation_space = self.Local   
+
         self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=np.float64)
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
@@ -111,11 +97,7 @@ class PolygonCREnv(gym.Env):
         self._generate_waypoints() # Create waypoints for aircraft
         self._generate_ac() # Create aircraft in the airspace
 
-        # Observation vector dependent on type chosen
-        if self.observation_space == self.BasicAbs:
-            observation = self._get_obs_BasicAbs()
-        elif self.observation_space == self.Local:
-            observation = self._get_obs_Local()
+        observation = self._get_obs_Local()
 
         info = self._get_info()
         
@@ -131,27 +113,25 @@ class PolygonCREnv(gym.Env):
         action_frequency = ACTION_FREQUENCY
         for _ in range(action_frequency):
             bs.sim.step()
-            if self.render_mode == "human":
-                # Observation vector dependent on type chosen
-                if self.observation_space == self.BasicAbs:
-                    observation = self._get_obs_BasicAbs()
-                elif self.observation_space == self.Local:
-                    observation = self._get_obs_Local()
-                
+            if self.render_mode == "human":              
                 self._render_frame()
         
-        # Observation vector dependent on type chosen
-        if self.observation_space == self.BasicAbs:
-            observation = self._get_obs_BasicAbs()
-        elif self.observation_space == self.Local:
-            observation = self._get_obs_Local()
-        
+        observation = self._get_obs_Local()        
         reward = self._get_reward()
-
         info = self._get_info()
 
-        return observation, reward, False, False, info
+        # truncate instead of terminate to avoid aircraft learning to exit sector fast
+        truncate = self._check_inside_airspace()
+
+        return observation, reward, False, truncate, info
     
+    def _check_inside_airspace(self):
+        ac_idx = bs.traf.id2idx(ACTOR)
+        if bs.tools.areafilter.checkInside(self.poly_name, np.array([bs.traf.lat[ac_idx]]), np.array([bs.traf.lon[ac_idx]]), np.array([ALTITUDE*FL2M])):
+            return False
+        else:
+            return True
+
     def _generate_polygon(self):
         
         R = np.sqrt(POLY_AREA_RANGE[1] / np.pi)
@@ -379,25 +359,26 @@ class PolygonCREnv(gym.Env):
             self.cos_track = np.append(self.cos_track, np.cos(track))
             self.sin_track = np.append(self.sin_track, np.sin(track))
 
-            self.distances = np.append(self.distances, distances[i-1])
+            self.distances = np.append(self.distances, distances[ac_idx-1])
 
         observation = {
             "cos(drift)": self.cos_drift,
             "sin(drift)": self.sin_drift,
-            "airspeed": self.airspeed,
-            "x_r": self.x_r[:NUM_AC_STATE],
-            "y_r": self.y_r[:NUM_AC_STATE],
-            "vx_r": self.vx_r[:NUM_AC_STATE],
-            "vy_r": self.vy_r[:NUM_AC_STATE],
+            "airspeed": (self.airspeed-150)/6,
+            "x_r": self.x_r[:NUM_AC_STATE]/13000,
+            "y_r": self.y_r[:NUM_AC_STATE]/13000,
+            "vx_r": self.vx_r[:NUM_AC_STATE]/32,
+            "vy_r": self.vy_r[:NUM_AC_STATE]/66,
             "cos(track)": self.cos_track[:NUM_AC_STATE],
             "sin(track)": self.sin_track[:NUM_AC_STATE],
-            "distances": self.distances[:NUM_AC_STATE]
+            "distances": (self.distances[:NUM_AC_STATE]-50000.)/15000.
         }
+
         return observation
     
     def _get_action(self, action):
-        dh = np.clip(action[0], -D_HEADING, D_HEADING)
-        dv = np.clip(action[1], -D_VELOCITY, D_VELOCITY)
+        dh = action[0] * D_HEADING
+        dv = action[1] * D_VELOCITY
         heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(ACTOR)] + dh)
         speed_new = (bs.traf.tas[bs.traf.id2idx(ACTOR)] + dv) * MpS2Kt
 
