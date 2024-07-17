@@ -8,9 +8,10 @@ import bluesky_gym.envs.common.functions as fn
 import gymnasium as gym
 from gymnasium import spaces
 
-AC_DENSITY_RANGE = (0.005, 0.015) # In AC/NM^2
+AC_DENSITY_RANGE = (0.003, 0.007) # In AC/NM^2
 AC_DENSITY_MU = 0.005 # In AC/NM^2
-AC_DENSITY_SIGMA = 0.0025 # In AC/NM^2
+AC_DENSITY_SIGMA = 0.001 # In AC/NM^2
+
 POLY_AREA_RANGE = (2400, 3750) # In NM^2
 CENTER = np.array([51.990426702297746, 4.376124857109851]) # TU Delft AE Faculty coordinates
 ALTITUDE = 350 # In FL
@@ -77,6 +78,11 @@ class PolygonCREnv(gym.Env):
         bs.scr = ScreenDummy()
         bs.stack.stack('DT 1;FF')
 
+        # initialize values used for logging -> input in _get_info
+        self.total_reward = 0
+        self.total_intrusions = 0
+        self.average_drift = np.array([])
+
         self.window = None
         self.clock = None
     
@@ -84,6 +90,10 @@ class PolygonCREnv(gym.Env):
         bs.traf.reset()
         bs.tools.areafilter.deleteArea(self.poly_name)
         super().reset(seed=seed)
+
+        self.total_reward = 0
+        self.total_intrusions = 0
+        self.average_drift = np.array([])
        
         self._generate_polygon() # Create airspace polygon
         
@@ -97,7 +107,7 @@ class PolygonCREnv(gym.Env):
         self._generate_waypoints() # Create waypoints for aircraft
         self._generate_ac() # Create aircraft in the airspace
 
-        observation = self._get_obs_Local()
+        observation = self._get_observation()
 
         info = self._get_info()
         
@@ -116,7 +126,7 @@ class PolygonCREnv(gym.Env):
             if self.render_mode == "human":              
                 self._render_frame()
         
-        observation = self._get_obs_Local()        
+        observation = self._get_observation()        
         reward = self._get_reward()
         info = self._get_info()
 
@@ -215,7 +225,9 @@ class PolygonCREnv(gym.Env):
         # but that should not be used by the agent for decision making, so used for logging and debugging purposes
         # for now just have 10, because it crashed if I gave none for some reason.
         return {
-            "distance": 10
+            'total_reward': self.total_reward,
+            'total_intrusions': self.total_intrusions,
+            'average_drift': self.average_drift.mean()
         }
     
     def _get_reward(self):
@@ -224,83 +236,11 @@ class PolygonCREnv(gym.Env):
         intrusion_reward = self._check_intrusion()
 
         total_reward = drift_reward + intrusion_reward
+        self.total_reward += total_reward
+
         return total_reward
-        
-    def _get_obs_BasicAbs(self):
-        
-        ac_idx = bs.traf.id2idx(ACTOR)
-        
-        # Observation vector shape and components
-        self.cos_drift = np.array([])
-        self.sin_drift = np.array([])
-        self.x = np.array([])
-        self.y = np.array([])
-        self.vx = np.array([])
-        self.vy = np.array([])
-        self.x_int = np.array([])
-        self.y_int = np.array([])
-        self.vx_int = np.array([])
-        self.vy_int = np.array([])
-        
-        # Drift of agent aircraft for reward calculation
-        drift = 0
-
-        ac_hdg = bs.traf.hdg[ac_idx]
-        
-        # Get and decompose agent aircaft drift
-        wpt_qdr, _  = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.wpts[0][0], self.wpts[0][1])
-        drift = ac_hdg - wpt_qdr
-        drift = fn.bound_angle_positive_negative_180(drift)
-        self.drift = drift
-        self.cos_drift = np.append(self.cos_drift, np.cos(np.deg2rad(drift)))
-        self.sin_drift = np.append(self.sin_drift, np.sin(np.deg2rad(drift)))
-        
-        # Get agent aircraft position, m
-        ac_loc = fn.latlong_to_nm(CENTER, np.array([bs.traf.lat[ac_idx], bs.traf.lon[ac_idx]])) * NM2KM * 1000 # Two-step conversion lat/long -> NM -> m
-        self.x = np.append(self.x, ac_loc[0])
-        self.y = np.append(self.y, ac_loc[1])
-        
-
-        # Get agent aircraft velocity, m/s
-        vx = np.cos(np.deg2rad(ac_hdg)) * bs.traf.tas[ac_idx]
-        vy = np.sin(np.deg2rad(ac_hdg)) * bs.traf.tas[ac_idx]
-        self.vx = np.append(self.vx, vx)
-        self.vy = np.append(self.vy, vy)
-
-        distances = [fn.euclidean_distance(ac_loc, fn.latlong_to_nm(CENTER, np.array([bs.traf.lat[i], bs.traf.lon[i]])) * NM2KM * 1000) for i in range(1, self.num_ac)]
-        ac_idx_by_dist = np.argsort(distances)
-
-        for i in range(self.num_ac-1):
-            ac_idx = ac_idx_by_dist[i]+1
-            int_hdg = bs.traf.hdg[ac_idx]
-            
-            # Intruder AC position, m
-            x_int, y_int = fn.latlong_to_nm(CENTER, np.array([bs.traf.lat[ac_idx], bs.traf.lon[ac_idx]])) * NM2KM * 1000
-            self.x_int = np.append(self.x_int, x_int)
-            self.y_int = np.append(self.y_int, y_int)
-            
-            # Intruder AC velocity, m/s
-            vx_int = np.cos(np.deg2rad(int_hdg)) * bs.traf.tas[ac_idx]
-            vy_int = np.sin(np.deg2rad(int_hdg)) * bs.traf.tas[ac_idx]
-            self.vx_int = np.append(self.vx_int, vx_int)
-            self.vy_int = np.append(self.vy_int, vy_int)
-
-        observation = {
-            "cos(drift)": self.cos_drift,
-            "sin(drift)": self.sin_drift,
-            "x": self.x,
-            "y": self.y,
-            "vx": self.vx,
-            "vy": self.vy,
-            "x_int": self.x_int[:NUM_AC_STATE],
-            "y_int": self.y_int[:NUM_AC_STATE],
-            "vx_int": self.vx_int[:NUM_AC_STATE],
-            "vy_int": self.vy_int[:NUM_AC_STATE]
-            }
-        
-        return observation
     
-    def _get_obs_Local(self):
+    def _get_observation(self):
 
         ac_idx = bs.traf.id2idx(ACTOR)
 
@@ -387,7 +327,9 @@ class PolygonCREnv(gym.Env):
 
 
     def _check_drift(self):
-        return abs(np.deg2rad(self.drift)) * DRIFT_PENALTY
+        drift = abs(np.deg2rad(self.drift))
+        self.average_drift = np.append(self.average_drift, drift)
+        return drift * DRIFT_PENALTY
     
     def _check_intrusion(self):
         ac_idx = bs.traf.id2idx(ACTOR)
@@ -396,6 +338,7 @@ class PolygonCREnv(gym.Env):
             int_idx = i+1
             _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
             if int_dis < INTRUSION_DISTANCE:
+                self.total_intrusions += 1
                 reward += INTRUSION_PENALTY
         
         return reward
