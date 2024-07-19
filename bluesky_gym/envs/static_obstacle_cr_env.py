@@ -541,6 +541,38 @@ class StaticObstacleCREnv(gym.Env):
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235))
 
+        px_per_km = self.window_width/MAX_DISTANCE
+
+        # # Draw ownship
+        # ac_idx = bs.traf.id2idx('KL001')
+        # ac_length = 10
+        # ac_hdg = bs.traf.hdg[ac_idx]
+        # heading_end_x = np.cos(np.deg2rad(ac_hdg)) * ac_length
+        # heading_end_y = np.sin(np.deg2rad(ac_hdg)) * ac_length
+        # ac_qdr, ac_dis = bs.tools.geo.kwikqdrdist(CENTER[0], CENTER[1], bs.traf.lat[ac_idx], bs.traf.lon[ac_idx])
+
+        # x_pos = (self.window_width/2)+(np.cos(np.deg2rad(ac_qdr))*(ac_dis * NM2KM)*px_per_km)
+        # y_pos = (self.window_height/2)-(np.sin(np.deg2rad(ac_qdr))*(ac_dis * NM2KM)*px_per_km)
+
+        # pygame.draw.line(canvas,
+        #     (0,0,0),
+        #     (x_pos,y_pos),
+        #     ((x_pos)+heading_end_x,(y_pos)-heading_end_y),
+        #     width = 4
+        # )
+
+        # # Draw heading line
+        # heading_length = 20
+        # heading_end_x = np.cos(np.deg2rad(ac_hdg)) * heading_length
+        # heading_end_y = np.sin(np.deg2rad(ac_hdg)) * heading_length
+
+        # pygame.draw.line(canvas,
+        #         (0,0,0),
+        #         (x_pos,y_pos),
+        #         ((x_pos)+heading_end_x,(y_pos)-heading_end_y),
+        #         width = 1
+        # )
+
         # draw ownship
         ac_idx = bs.traf.id2idx('KL001')
         ac_length = 8
