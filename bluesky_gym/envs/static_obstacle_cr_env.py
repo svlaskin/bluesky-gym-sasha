@@ -121,15 +121,18 @@ class StaticObstacleCREnv(gym.Env):
         bs.scr = ScreenDummy()
         bs.stack.stack('DT 5;FF')
 
+        self.obstacle_names = []
+
         self.window = None
         self.clock = None
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         
-        bs.sim.reset()
-        bs.stack.stack('DT 5;FF')
+        bs.traf.reset()
         self.counter = 0
+
+        # bs.tools.areafilter.deleteArea(self.poly_name)
 
         bs.traf.cre('KL001',actype="A320",acspd=AC_SPD)
 
@@ -194,6 +197,8 @@ class StaticObstacleCREnv(gym.Env):
         return p_area, p, R
     
     def _generate_obstacles(self):
+        for name in self.obstacle_names:
+            bs.tools.areafilter.deleteArea(name)
         self.obstacle_names = []
         self.obstacle_vertices = []
         self.obstacle_radius = []
@@ -269,22 +274,6 @@ class StaticObstacleCREnv(gym.Env):
             self.wpt_lon.append(wpt_lon)
             self.wpt_reach.append(0)
 
-
-    # Modified _generate_waypoints function from horizotal_cr_env to avoid using a global variable for the number of obstacles. 
-    # def _generate_waypoint(self, acid = 'KL001', num_waypoints = NUM_WAYPOINTS):
-    #     self.wpt_lat = []
-    #     self.wpt_lon = []
-    #     self.wpt_reach = []
-    #     for i in range(num_waypoints):
-    #         wpt_dis_init = np.random.randint(WAYPOINT_DISTANCE_MIN, WAYPOINT_DISTANCE_MAX)
-    #         wpt_hdg_init = 0 # always generating waypoints straight ahead?
-
-    #         ac_idx = bs.traf.id2idx(acid)
-
-    #         wpt_lat, wpt_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], wpt_dis_init, wpt_hdg_init)    
-    #         self.wpt_lat.append(wpt_lat)
-    #         self.wpt_lon.append(wpt_lon)
-    #         self.wpt_reach.append(0)
 
     def _generate_coordinates_centre_obstacles(self, acid = 'KL001', num_obstacles = NUM_OBSTACLES):
         self.obstacle_centre_lat = []
