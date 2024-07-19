@@ -48,10 +48,7 @@ ACLON_INIT = 4.511017581418151
 
 class AmanEnvS(gym.Env):
     """ 
-    Single-agent arrival manager environment
-
-    TODO:
-    - actually fix this thing.
+    Single-agent arrival manager environment - only one aircraft (ownship) is merged into NPC stream of aircraft.
     """
     metadata = {"render_modes": ["rgb_array","human"], "render_fps": 120}
 
@@ -109,7 +106,7 @@ class AmanEnvS(gym.Env):
 
 
         # bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= 52.97843850741256, aclon=4.511017581418151, achdg=180)
-        bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= rlat, aclon= rlon, achdg=180)
+        bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= rlat, aclon= rlon, achdg=180,acalt=10000)
         bs.stack.stack(f"KL001 addwpt {FIX_LAT} {FIX_LON}")
         bs.stack.stack(f"KL001 dest {RWY_LAT} {RWY_LON}")
 
@@ -144,7 +141,7 @@ class AmanEnvS(gym.Env):
         if terminated:
             for acid in bs.traf.id:
                 idx = bs.traf.id2idx(acid)
-                bs.traf.delete(idx)
+                # bs.traf.delete(idx)
 
         return observation, reward, terminated, False, info
     # function to generate the aircraft. so far only randomised 'intruders' are generated.
@@ -162,7 +159,7 @@ class AmanEnvS(gym.Env):
             self.rwy_lon = RWY_LON
 
             # create aircraft
-            bs.traf.cre(f'INT{i}',actype="A320",acspd=AC_SPD,aclat=lat_ac,aclon=lon_ac,achdg=180)
+            bs.traf.cre(f'INT{i}',actype="A320",acspd=AC_SPD,aclat=lat_ac,aclon=lon_ac,achdg=180,acalt=10000)
             bs.stack.stack(f"INT{i} addwpt {FIX_LAT} {FIX_LON}")
             bs.stack.stack(f"INT{i} dest {RWY_LAT} {RWY_LON}")
         bs.stack.stack('reso off')
@@ -183,6 +180,7 @@ class AmanEnvS(gym.Env):
         self.cos_drift = []
         self.sin_drift = []
         self.drift = []
+        self.terminated = np.full(NUM_AC,False)
 
         self.ac_hdg = bs.traf.hdg[ac_idx]
         self.ac_spd = bs.traf.gs[ac_idx]
@@ -225,27 +223,20 @@ class AmanEnvS(gym.Env):
                 "x_difference_speed": np.array(self.x_difference_speed)/AC_SPD,
                 "y_difference_speed": np.array(self.y_difference_speed)/AC_SPD,
                 # "waypoint_distance": np.array(self.waypoint_distance)/WAYPOINT_DISTANCE_MAX,
-                "cos_drift": np.array(self.cos_drift[0]),
-                "sin_drift": np.array(self.sin_drift[0]),
+                "cos_drift": np.array([self.cos_drift[0]]),
+                "sin_drift": np.array([self.sin_drift[0]]),
                 "faf_distance": np.array(self.faf_distance)/WAYPOINT_DISTANCE_MAX
             }
-        import code
+        # import code
         # code.interact(local=locals())
         return observation
     
     def _get_info(self):
-        # Here you implement any additional info that you want to return after a step,
-        # but that should not be used by the agent for decision making, so used for logging and debugging purposes
-        # for now just have 10, because it crashed if I gave none for some reason.
         return {
             "distance": 10
         }
 
     def _get_reward(self):
-
-        # Always return done as false, as this is a non-ending scenario with 
-        # new waypoints spawning continously
-
         reach_reward = self._check_waypoint()
         drift_reward = self._check_drift()
         intrusion_reward = self._check_intrusion()
@@ -264,7 +255,10 @@ class AmanEnvS(gym.Env):
         for distance in self.waypoint_distance:
             if distance < DISTANCE_MARGIN and self.wpt_reach[index] != 1:
                 self.wpt_reach[index] = 1
-                reward += REACH_REWARD
+                # bs.traf.delete(0)
+                bs.stack.stack(f"KL001 delrte")
+                f"KL001 addwpt {RWY_LAT} {RWY_LON}"
+                # reward += REACH_REWARD
                 index += 1
             else:
                 reward += 0
@@ -284,13 +278,13 @@ class AmanEnvS(gym.Env):
                 reward += INTRUSION_PENALTY
         return reward
     
-    # def _check_arrival(self):
-    #     for i in range(NUM_AC): # excluding ownship
-    #         int_idx = i
-    #         _, rwy_dis = bs.tools.geo.kwikqdrdist(self.rwy_lat, self.rwy_lon, bs.traf.lat[int_idx], bs.traf.lon[int_idx])
-    #         if rwy_dis < INTRUSION_DISTANCE:
-    #             terminated[i] = True
-    #     return reward
+    def _check_arrival(self):
+        for i in range(NUM_AC): # excluding ownship
+            int_idx = i
+            _, rwy_dis = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, bs.traf.lat[int_idx], bs.traf.lon[int_idx])
+            if rwy_dis < INTRUSION_DISTANCE:
+                self.terminated[i] = True
+        # return reward
     
     # action is currently limited to speed change
     # def _get_action(self,action):
@@ -298,8 +292,11 @@ class AmanEnvS(gym.Env):
     #         bs.stack.stack(f"HDG KL001 {action[0]}")
 
     def _get_action(self,action):
-        action[0] = self.ac_spd + action[0] * D_SPEED
-        action[1] = self.ac_hdg + action[1] * D_HEADING
+        action_speed = self.ac_spd + action[0] * D_SPEED
+        action_heading = self.ac_hdg + action[1] * D_HEADING
+
+        bs.stack.stack(f"KL001 SPD {action_speed}")
+        bs.stack.stack(f"KL001 HDG {action_heading}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
@@ -357,13 +354,27 @@ class AmanEnvS(gym.Env):
             (3,252,11),
             (circle_x,circle_y),
             (circle_x+he_x_l/2,circle_y-he_y_l/2),
-            width = 2
+            width = 4
             )
             pygame.draw.line(canvas,
             (3,252,11),
             (circle_x,circle_y),
             (circle_x+he_x_r/2,circle_y-he_y_r/2),
-            width = 2
+            width = 4
+            )
+
+            # draw rwy start
+            rwy_faf_qdr, rwy_faf_dis = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, RWY_LAT, RWY_LON)
+            x_pos = (circle_x)+(np.cos(np.deg2rad(rwy_faf_qdr))*(rwy_faf_dis * NM2KM)/max_distance)*self.window_width
+            y_pos = (circle_y)-(np.sin(np.deg2rad(rwy_faf_qdr))*(rwy_faf_dis * NM2KM)/max_distance)*self.window_height
+            heading_length = 5000
+            heading_end_x = ((np.cos(np.deg2rad(180)) * heading_length)/max_distance)*self.window_width
+            heading_end_y = ((np.sin(np.deg2rad(180)) * heading_length)/max_distance)*self.window_width
+            pygame.draw.line(canvas,
+            (255,255,255),
+            (x_pos,y_pos),
+            (circle_x+heading_end_x/2,circle_y-heading_end_y/2),
+            width = 4
             )
         
 

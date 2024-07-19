@@ -13,11 +13,11 @@ import random
 DISTANCE_MARGIN = 5 # km
 REACH_REWARD = 1
 
-# DRIFT_PENALTY = -0.1
+DRIFT_PENALTY = -0.1
 INTRUSION_PENALTY = -1
 
 # NUM_WAYPOINTS = 1
-INTRUSION_DISTANCE = 5 # NM
+INTRUSION_DISTANCE = 4 # NM
 
 WAYPOINT_DISTANCE_MIN = 70
 WAYPOINT_DISTANCE_MAX = 250
@@ -48,7 +48,7 @@ ACLON_INIT = 4.511017581418151
 
 class AmanEnvS(gym.Env):
     """ 
-    Single-agent arrival manager environment
+    Centrlised arrival manager. All aircraft are steered by the centralised agent.
 
     TODO:
     - actually fix this thing.
@@ -70,14 +70,14 @@ class AmanEnvS(gym.Env):
                 "sin_difference_pos": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
                 "x_difference_speed": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
                 "y_difference_speed": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
-                "waypoint_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
-                # "cos_drift": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
-                # "sin_drift": spaces.Box(-np.inf, np.inf, shape = (NUM_WAYPOINTS,), dtype=np.float64),
+                # "waypoint_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64),
+                "cos_drift": spaces.Box(-np.inf, np.inf, shape = (1,), dtype=np.float64),
+                "sin_drift": spaces.Box(-np.inf, np.inf, shape = (1,), dtype=np.float64),
                 "faf_distance": spaces.Box(-np.inf, np.inf, shape = (NUM_AC,), dtype=np.float64)
             }
         )
        
-        self.action_space = spaces.Box(-1, 1, shape=(NUM_AC,), dtype=np.float64)
+        self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=np.float64)
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -100,8 +100,16 @@ class AmanEnvS(gym.Env):
         
         bs.traf.reset()
 
-        # ownship - create at same location. hardcoded over den helder
-        bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= 52.97843850741256, aclon=4.511017581418151, achdg=180)
+        # ownship
+        # random spawn
+        bearing_to_pos = random.uniform(-D_HEADING, D_HEADING) # heading radial towards FAF
+        distance_to_pos = random.uniform(50,300) # distance to faf 
+        # distance_to_pos = 50
+        rlat, rlon = fn.get_point_at_distance(FIX_LAT, FIX_LON, distance_to_pos, bearing_to_pos)
+
+
+        # bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= 52.97843850741256, aclon=4.511017581418151, achdg=180)
+        bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat=rlat, aclon= rlon, achdg=180)
         bs.stack.stack(f"KL001 addwpt {FIX_LAT} {FIX_LON}")
         bs.stack.stack(f"KL001 dest {RWY_LAT} {RWY_LON}")
 
@@ -144,7 +152,7 @@ class AmanEnvS(gym.Env):
         for i in range(NUM_AC-1):
             # randomise position here
             bearing_to_pos = random.uniform(-D_HEADING, D_HEADING) # heading radial towards FAF
-            distance_to_pos = random.uniform(30,300) # distance to faf 
+            distance_to_pos = random.uniform(50,300) # distance to faf 
             # distance_to_pos = 50
             lat_ac, lon_ac = fn.get_point_at_distance(FIX_LAT, FIX_LON, distance_to_pos, bearing_to_pos)
             
@@ -203,6 +211,11 @@ class AmanEnvS(gym.Env):
             self.wpt_qdr.append(wpt_qdr)
             # FAF
             faf_qdr, faf_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[int_idx], bs.traf.lon[int_idx], self.wpt_lat, self.wpt_lon)
+            drift = self.ac_hdg - faf_qdr
+            drift = fn.bound_angle_positive_negative_180(drift)
+            self.drift.append(drift)
+            self.cos_drift.append(np.cos(np.deg2rad(drift)))
+            self.sin_drift.append(np.sin(np.deg2rad(drift)))
             self.faf_distance.append(faf_dis * NM2KM)
 
         observation = {
@@ -211,12 +224,13 @@ class AmanEnvS(gym.Env):
                 "sin_difference_pos": np.array(self.sin_bearing),
                 "x_difference_speed": np.array(self.x_difference_speed)/AC_SPD,
                 "y_difference_speed": np.array(self.y_difference_speed)/AC_SPD,
-                "waypoint_distance": np.array(self.waypoint_distance)/WAYPOINT_DISTANCE_MAX,
-                # "cos_drift": np.array(self.cos_drift),
-                # "sin_drift": np.array(self.sin_drift),
+                # "waypoint_distance": np.array(self.waypoint_distance)/WAYPOINT_DISTANCE_MAX,
+                "cos_drift": np.array([self.cos_drift[0]]),
+                "sin_drift": np.array([self.sin_drift[0]]),
                 "faf_distance": np.array(self.faf_distance)/WAYPOINT_DISTANCE_MAX
             }
-        
+        # import code
+        # code.interact(local=locals())
         return observation
     
     def _get_info(self):
@@ -233,11 +247,11 @@ class AmanEnvS(gym.Env):
         # new waypoints spawning continously
 
         reach_reward = self._check_waypoint()
-        # drift_reward = self._check_drift()
+        drift_reward = self._check_drift()
         intrusion_reward = self._check_intrusion()
 
-        # total_reward = reach_reward + drift_reward + intrusion_reward
-        total_reward = reach_reward + intrusion_reward
+        total_reward = drift_reward + intrusion_reward
+        # total_reward = intrusion_reward
 
         if 0 in self.wpt_reach:
             return total_reward, 0
@@ -257,8 +271,8 @@ class AmanEnvS(gym.Env):
                 index += 1
         return reward
 
-    # def _check_drift(self):
-    #     return abs(np.deg2rad(self.drift[0])) * DRIFT_PENALTY
+    def _check_drift(self):
+        return abs(np.deg2rad(self.drift[0])) * DRIFT_PENALTY
 
     def _check_intrusion(self):
         ac_idx = bs.traf.id2idx('KL001')
@@ -281,10 +295,14 @@ class AmanEnvS(gym.Env):
     # action is currently limited to speed change
     # def _get_action(self,action):
     #         action = self.ac_hdg + action * D_HEADING
-
     #         bs.stack.stack(f"HDG KL001 {action[0]}")
+
     def _get_action(self,action):
-        action = self.ac_spd + action * D_SPEED
+        action_speed = self.ac_spd + action[0] * D_SPEED
+        action_heading = self.ac_hdg + action[1] * D_HEADING
+
+        bs.stack.stack(f"KL001 SPD {action_speed}")
+        bs.stack.stack(f"KL001 HDG {action_heading}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
@@ -332,8 +350,6 @@ class AmanEnvS(gym.Env):
             (circle_x+heading_end_x/2,circle_y-heading_end_y/2),
             width = 2
             )
-
-
 
             # heading boundary lines
             he_x_l = ((np.cos(np.deg2rad(180+135)) * heading_length)/max_distance)*self.window_width
@@ -385,13 +401,14 @@ class AmanEnvS(gym.Env):
         # draw intruders
         ac_length = 3
 
-        for i in range(0,NUM_AC):
+        for i in range(1,NUM_AC):
             int_idx = i
             int_hdg = bs.traf.hdg[int_idx]
             heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
             heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
 
             int_qdr, int_dis = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, bs.traf.lat[int_idx], bs.traf.lon[int_idx])
+            # int_qdr, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[0], bs.traf.lon[0], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
 
             # determine color
             if int_dis < INTRUSION_DISTANCE:
@@ -403,9 +420,6 @@ class AmanEnvS(gym.Env):
 
             x_pos = (circle_x)+(np.cos(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_width
             y_pos = (circle_y)-(np.sin(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_height
-
-            # x_pos = 
-            # y_pos = 
 
             pygame.draw.line(canvas,
                 color,
@@ -434,8 +448,6 @@ class AmanEnvS(gym.Env):
                 width = 2
             )
 
-            # import code
-            # code.interact(local=locals())
 
         # # draw target waypoint - Here it is the runway
         # for qdr, dis, reach in zip(self.wpt_qdr, self.waypoint_distance, self.wpt_reach):
