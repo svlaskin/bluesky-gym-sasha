@@ -31,7 +31,7 @@ NM2KM = 1.852
 
 ACTION_FREQUENCY = 10
 
-NUM_AC = 10
+NUM_AC = 2
 NUM_WAYPOINTS = 1
 
 # Fix, north of EHAM in Heiloo
@@ -211,6 +211,9 @@ class AmanEnvS(gym.Env):
             faf_qdr, faf_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[int_idx], bs.traf.lon[int_idx], self.wpt_lat, self.wpt_lon)
             drift = self.ac_hdg - faf_qdr
             drift = fn.bound_angle_positive_negative_180(drift)
+            if self.wpt_reach[i]:
+                drift = self.ac_hdg - wpt_qdr
+                drift = fn.bound_angle_positive_negative_180(drift)
             self.drift.append(drift)
             self.cos_drift.append(np.cos(np.deg2rad(drift)))
             self.sin_drift.append(np.sin(np.deg2rad(drift)))
