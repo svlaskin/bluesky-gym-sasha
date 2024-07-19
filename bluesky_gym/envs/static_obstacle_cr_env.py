@@ -127,7 +127,8 @@ class StaticObstacleCREnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         
-        bs.traf.reset()
+        bs.sim.reset()
+        bs.stack.stack('DT 5;FF')
         self.counter = 0
 
         bs.traf.cre('KL001',actype="A320",acspd=AC_SPD)
@@ -143,11 +144,7 @@ class StaticObstacleCREnv(gym.Env):
 
         self._generate_obstacles()
 
-        # self._generate_other_aircraft()
-
         self._generate_waypoint()
-
-        # self._path_planning()
 
         observation = self._get_obs()
 
@@ -174,58 +171,7 @@ class StaticObstacleCREnv(gym.Env):
 
         info = self._get_info()
 
-        # bluesky reset?? bs.sim.reset() or bs.traf.reset()
-        if terminated:
-            for acid in bs.traf.id:
-                idx = bs.traf.id2idx(acid)
-                bs.traf.delete(idx)
-
         return observation, reward, terminated, False, info
-
-    # def _generate_other_aircraft(self, acid_actor = 'KL001', num_other_aircraft = NUM_OTHER_AIRCRAFT):
-    #     self.other_aircraft_names = []
-    #     for i in range(num_other_aircraft): 
-    #         other_aircraft_name = 'AC' + str(i+1)
-    #         self.other_aircraft_names.append(other_aircraft_name)
-    #         ac_idx_actor = bs.traf.id2idx(acid_actor)
-
-    #         check_if_inside_obs = True
-    #         loop_counter = 0
-    #         # check if aircraft is is created inside obstacle
-    #         while check_if_inside_obs:
-    #             loop_counter+= 1
-
-    #             other_aircraft_dis_from_reference = np.random.randint(OTHER_AC_DISTANCE_MIN, OTHER_AC_DISTANCE_MAX)
-    #             other_aircraft_hdg_from_reference = np.random.randint(0, 360)
-    #             # black(other_aircraft_dis_from_reference)
-    #             # gray(other_aircraft_hdg_from_reference)
-                
-    #             other_aircraft_lat, other_aircraft_lon = fn.get_point_at_distance(bs.traf.lat[ac_idx_actor], bs.traf.lon[ac_idx_actor], other_aircraft_dis_from_reference, other_aircraft_hdg_from_reference)
-
-    #             # black(other_aircraft_lat)
-    #             # gray(other_aircraft_lon)
-
-                
-    #             bs.traf.cre(acid=other_aircraft_name,actype="A320",aclat=other_aircraft_lat, aclon=other_aircraft_lon, acspd=AC_SPD)
-                
-    #             ac_idx = bs.traf.id2idx(other_aircraft_name)
-
-    #             # print(bs.traf.lat[ac_idx])
-    #             # print(bs.traf.lon[ac_idx])
-
-    #             inside_temp = []
-    #             for j in range(NUM_OBSTACLES):
-    #                 inside_temp.append(bs.tools.areafilter.checkInside(self.obstacle_names[j], bs.traf.lat, bs.traf.lon, bs.traf.alt)[-1])
-    #             # magenta(inside_temp)
-    #             check_if_inside_obs = any(x == True for x in inside_temp)
-    #             if check_if_inside_obs:
-    #                 bs.traf.delete(ac_idx)
-
-    #             # red(check_if_inside_obs)
-    #             if loop_counter > 1000:
-    #                 import code
-    #                 code.interact(local = locals())
-    #                 raise Exception("No aircraft can be generated outside the obstacles. Check the parameters of the obstacles in the definition of the scenario.")
 
     def _generate_polygon(self, centre):
         poly_area = np.random.randint(POLY_AREA_RANGE[0], POLY_AREA_RANGE[1])
