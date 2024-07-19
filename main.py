@@ -3,7 +3,7 @@ This file trains a model using the StaticObstacleCREnv-V0 environment
 """
 
 import gymnasium as gym
-from stable_baselines3 import PPO
+from stable_baselines3 import SAC
 import numpy as np
 
 import bluesky_gym
@@ -17,12 +17,12 @@ EPOCHS = 200
 
 if __name__ == "__main__":
     # Create the environment
-    env = gym.make('StaticObstacleCREnv-v0', render_mode='human')
+    env = gym.make('StaticObstacleCREnv-v0', render_mode=None)
 
     # obs, info = env.reset()
 
     # Create the model
-    model = PPO("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
+    model = SAC("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
 
     # Train the model
     if TRAIN:
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     
     # Test the trained model
 
-    model = PPO.load("models/StaticObstacleCREnv-v0_ppo/model_10000", env=env)
+    model = SAC.load("models/StaticObstacleCREnv-v0_ppo/model_10000", env=env)
     env = gym.make('StaticObstacleCREnv-v0', render_mode="human")
 
     for i in range(EVAL_EPISODES):
