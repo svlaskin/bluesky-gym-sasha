@@ -58,7 +58,7 @@ D_SPEED = 20 # kts (check)
 AC_SPD = 150 # kts
 
 NM2KM = 1.852
-KTS2MS = 1.94384
+MpS2Kt = 1.94384
 
 ACTION_FREQUENCY = 10
 
@@ -504,11 +504,10 @@ class StaticObstacleCREnv(gym.Env):
 
 
     def _get_action(self,action):
-            
-            action_hdg = self.ac_hdg + action[0] * D_HEADING
-            action_spd = self.ac_tas/KTS2MS + action[1] * D_SPEED
-            bs.stack.stack(f"HDG KL001 {action_hdg}")
-            bs.stack.stack(f"SPD KL001 {action_spd}")
+        action_hdg = self.ac_hdg + action[0] * D_HEADING
+        action_spd = (self.ac_tas + action[1] * D_SPEED)*MpS2Kt
+        bs.stack.stack(f"HDG KL001 {action_hdg}")
+        bs.stack.stack(f"SPD KL001 {action_spd}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
