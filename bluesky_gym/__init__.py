@@ -27,7 +27,7 @@ def register_envs():
     )
 
     register(
-        id="PolygonCREnv-v0",
-        entry_point="bluesky_gym.envs.polygon_conf_env:PolygonCREnv",
+        id="SectorCREnv-v0",
+        entry_point="bluesky_gym.envs.sector_cr_env:SectorCREnv",
         max_episode_steps=200,
     )

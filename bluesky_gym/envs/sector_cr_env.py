@@ -37,9 +37,9 @@ INTRUSION_PENALTY = -1
 D_HEADING = 22.5 # deg
 D_VELOCITY = 20/3 # kts
 
-class PolygonCREnv(gym.Env):
+class SectorCREnv(gym.Env):
     """ 
-    Polygon Conflict Resolution Environment
+    Sector Conflict Resolution Environment
     """
     metadata = {"render_modes": ["rgb_array","human"], "render_fps": 120}
     
