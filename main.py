@@ -26,12 +26,12 @@ log_dir = f'./logs/{env_name}/'
 file_name = f'{env_name}_{str(algorithm.__name__)}.csv'
 csv_logger_callback = logger.CSVLoggerCallback(log_dir, file_name)
 
-TRAIN = False
+TRAIN = True
 EVAL_EPISODES = 10
 EPOCHS = 200
 
 if __name__ == "__main__":
-    env = gym.make(env_name, render_mode=None)
+    env = gym.make(env_name, render_mode='human')
     obs, info = env.reset()
     model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
     if TRAIN:

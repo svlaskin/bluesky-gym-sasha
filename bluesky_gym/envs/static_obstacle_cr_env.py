@@ -56,6 +56,7 @@ D_HEADING = 45 #degrees
 D_SPEED = 20/3 # kts (check)
 
 AC_SPD = 150 # kts
+ALTITUDE = 350 # In FL
 
 NM2KM = 1.852
 MpS2Kt = 1.94384
@@ -134,7 +135,7 @@ class StaticObstacleCREnv(gym.Env):
 
         # bs.tools.areafilter.deleteArea(self.poly_name)
 
-        bs.traf.cre('KL001',actype="A320",acspd=AC_SPD)
+        bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, acalt=ALTITUDE)
 
         # defining screen coordinates
         # defining the reference point as the top left corner of the SQUARE screen
@@ -166,8 +167,12 @@ class StaticObstacleCREnv(gym.Env):
         for i in range(action_frequency):
             bs.sim.step()
             if self.render_mode == "human":
-                print(bs.traf.alt[0])
                 self._render_frame()
+            reward, terminated = self._get_reward()
+            if terminated:
+                observation = self._get_obs()
+                info = self._get_info()
+                return observation, reward, terminated, False, info
 
         observation = self._get_obs()
         reward, terminated = self._get_reward()
@@ -177,7 +182,7 @@ class StaticObstacleCREnv(gym.Env):
         return observation, reward, terminated, False, info
 
     def _generate_polygon(self, centre):
-        poly_area = np.random.randint(POLY_AREA_RANGE[0], POLY_AREA_RANGE[1])
+        poly_area = np.random.randint(POLY_AREA_RANGE[0]*2, POLY_AREA_RANGE[1])
         R = np.sqrt(poly_area/ np.pi)
         p = [fn.random_point_on_circle(R) for _ in range(3)] # 3 random points to start building the polygon
         p = fn.sort_points_clockwise(p)
@@ -496,8 +501,10 @@ class StaticObstacleCREnv(gym.Env):
         reward = 0
         terminate = 0
         for obs_idx in range(NUM_OBSTACLES):
-            _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.obstacle_centre_lat[obs_idx], self.obstacle_centre_lon[obs_idx])
-            if int_dis < INTRUSION_DISTANCE:
+            
+            # _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.obstacle_centre_lat[obs_idx], self.obstacle_centre_lon[obs_idx])
+            # if int_dis < INTRUSION_DISTANCE:
+            if bs.tools.areafilter.checkInside(self.obstacle_names[obs_idx], np.array([bs.traf.lat[ac_idx]]), np.array([bs.traf.lon[ac_idx]]), np.array([bs.traf.alt[ac_idx]])):
                 reward += RESTRICTED_AREA_INTRUSION_PENALTY
                 terminate = 1
         return reward, terminate
