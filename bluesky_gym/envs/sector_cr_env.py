@@ -322,6 +322,7 @@ class SectorCREnv(gym.Env):
         heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(ACTOR)] + dh)
         speed_new = (bs.traf.tas[bs.traf.id2idx(ACTOR)] + dv) * MpS2Kt
 
+        # print(speed_new)
         bs.stack.stack(f"HDG {ACTOR} {heading_new}")
         bs.stack.stack(f"SPD {ACTOR} {speed_new}")
 

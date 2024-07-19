@@ -53,7 +53,7 @@ OBSTACLE_DISTANCE_MAX = 150 # KM
 # OTHER_AC_DISTANCE_MAX = 170 # KM
 
 D_HEADING = 45 #degrees
-D_SPEED = 20 # kts (check)
+D_SPEED = 20/3 # kts (check)
 
 AC_SPD = 150 # kts
 
@@ -119,7 +119,7 @@ class StaticObstacleCREnv(gym.Env):
 
         # initialize dummy screen and set correct sim speed
         bs.scr = ScreenDummy()
-        bs.stack.stack('DT 5;FF')
+        bs.stack.stack('DT 1;FF')
 
         self.obstacle_names = []
 
@@ -166,7 +166,7 @@ class StaticObstacleCREnv(gym.Env):
         for i in range(action_frequency):
             bs.sim.step()
             if self.render_mode == "human":
-                observation = self._get_obs()
+                print(bs.traf.alt[0])
                 self._render_frame()
 
         observation = self._get_obs()
@@ -504,10 +504,20 @@ class StaticObstacleCREnv(gym.Env):
 
 
     def _get_action(self,action):
-        action_hdg = self.ac_hdg + action[0] * D_HEADING
-        action_spd = (self.ac_tas + action[1] * D_SPEED)*MpS2Kt
-        bs.stack.stack(f"HDG KL001 {action_hdg}")
-        bs.stack.stack(f"SPD KL001 {action_spd}")
+        dh = action[0] * D_HEADING
+        dv = action[1] * D_SPEED
+        heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx('KL001')] + dh)
+        speed_new = (bs.traf.tas[bs.traf.id2idx('KL001')] + dv) * MpS2Kt
+
+        # print(speed_new)
+        bs.stack.stack(f"HDG {'KL001'} {heading_new}")
+        bs.stack.stack(f"SPD {'KL001'} {speed_new}")
+        
+        # action_hdg = self.ac_hdg + action[0] * D_HEADING
+        # action_spd = (self.ac_tas + action[1] * D_SPEED)*MpS2Kt
+
+        # bs.stack.stack(f"HDG KL001 {action_hdg}")
+        # bs.stack.stack(f"SPD KL001 {action_spd}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":

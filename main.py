@@ -50,6 +50,7 @@ if __name__ == "__main__":
         tot_rew = 0
         while not (done or truncated):
             action = np.array(np.random.randint(-100,100,size=(2))/100)
+            action = np.array([0,-1])
             # action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, truncated, info = env.step(action[()])
             tot_rew += reward
