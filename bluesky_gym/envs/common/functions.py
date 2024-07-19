@@ -1,4 +1,5 @@
 import numpy as np
+from typing import List
 
 def bound_angle_positive_negative_180(angle_deg: float) -> float:
     """ maps any angle in degrees to the [-180,180] interval 
@@ -40,7 +41,7 @@ def get_point_at_distance(lat1, lon1, d, bearing, R=6371):
     )
     return np.degrees(lat2), np.degrees(lon2)
 
-def random_point_on_circle(radius: float) -> tuple:
+def random_point_on_circle(radius: float) -> np.array:
     """ Get a random point on a circle circumference with given radius
     Parameters
     __________
@@ -49,37 +50,36 @@ def random_point_on_circle(radius: float) -> tuple:
     
     Returns
     __________
-    point: tuple
+    point: np.array
         randomly sampled point
     """
     alpha = 2 * np.pi * np.random.uniform(0., 1.)
     x = radius * np.cos(alpha)
     y = radius * np.sin(alpha)
-    return (x, y)
+    return np.array([x, y])
 
-
-def sort_points_clockwise(vertices: list[tuple]) -> list[tuple]:
+def sort_points_clockwise(vertices: np.array) -> np.array:
     """ Sort the points in clockwise order
     Parameters
     __________
-    points: List[tuple]
-        list of points
+    vertices: np.array
+        array of points
     
     Returns
     __________
-    sorted_verticess: List[tuple]
+    sorted_vertices: np.array
+        sorted array of points
     """
-    sorted_vertices = sorted(vertices, key=lambda point: np.arctan2(point[1], point[0]))
+    sorted_vertices = [vertices[i] for i in np.argsort([np.arctan2(v[1], v[0]) for v in vertices])]
 
-    return sorted_vertices
-    
+    return sorted_vertices   
 
-def polygon_area(vertices: list[tuple]) -> float:
+def polygon_area(vertices: np.array) -> float:
     """ Calculate the area of a polygon given the vertices
     Parameters
     __________
-    vertices: List[tuple]
-        list of vertices of the polygon
+    vertices: np.array
+        array of vertices of the polygon
     
     Returns
     __________
@@ -95,66 +95,66 @@ def polygon_area(vertices: list[tuple]) -> float:
     area = np.abs(area) / 2.0
     return area
 
-def nm_to_latlong(center: tuple, point: tuple) -> tuple:
+def nm_to_latlong(center: np.array, point: np.array) -> np.array:
     """ Convert a point in nm to lat/long coordinates
     Parameters
     __________
-    center: tuple
+    center: np.array
         center point of the conversion
-    point: tuple
+    point: np.array
         point to be converted
     
     Returns
     __________
-    latlong: tuple
+    latlong: np.array
         converted point in lat/long coordinates
     """
     lat = center[0] + (point[0] / 60)
     lon = center[1] + (point[1] / (60 * np.cos(np.radians(center[0]))))
-    return (lat, lon)
+    return np.array([lat, lon])
 
-def latlong_to_nm(center: tuple, point: tuple) -> tuple:
+def latlong_to_nm(center: np.array, point: np.array) -> np.array:
     """ Convert a point in lat/long coordinates to nm
     Parameters
     __________
-    center: tuple
+    center: np.array
         center point of the conversion
-    point: tuple
+    point: np.array
         point to be converted
     
     Returns
     __________
-    nm: tuple
+    nm: np.array
         converted point in nm
     """
     x = (point[0] - center[0]) * 60
     y = (point[1] - center[1]) * 60 * np.cos(np.radians(center[0]))
-    return (x, y)
+    return np.array([x, y])
 
-def euclidean_distance(point1: tuple, point2: tuple) -> float:
+def euclidean_distance(point1: np.array, point2: np.array) -> float:
     """ Calculate the euclidean distance between two points
     Parameters
     __________
-    point1: tuple
-        (x, y) of the first point
-    point2: tuple
-        (x, y) of the second point
+    point1: np.array
+        [x, y] of the first point
+    point2: np.array
+        [x, y] of the second point
         
     Returns
     __________
     distance: float
         euclidean distance between the two points
     """
-    return np.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)
+    return np.sqrt(np.sum((point2 - point1)**2))
 
-def get_hdg(point1: tuple, point2: tuple) -> float:
+def get_hdg(point1: np.array, point2: np.array) -> float:
     """ Calculate the heading from point1 to point2
     Parameters
     __________
-    point1: tuple
-        (lat, lon) of the first point 
-    point2: tuple
-        (lat, lon) of the second point
+    point1: np.array
+        [lat, lon] of the first point 
+    point2: np.array
+        [lat, lon] of the second point
     
     Returns
     __________
@@ -175,5 +175,4 @@ def get_hdg(point1: tuple, point2: tuple) -> float:
     hdg = (hdg + 360) % 360 # Convert back to [0, 360] interval
     
     return hdg
-    
-    
+

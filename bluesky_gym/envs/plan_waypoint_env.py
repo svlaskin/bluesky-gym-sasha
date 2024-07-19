@@ -68,6 +68,10 @@ class PlanWaypointEnv(gym.Env):
         bs.scr = ScreenDummy()
         bs.stack.stack('DT 1;FF')
 
+        # initialize values used for logging -> input in _get_info
+        self.total_reward = 0
+        self.waypoints_completed = 0
+
         """
         If human-rendering is used, `self.window` will be a reference
         to the window that we draw to. `self.clock` will be a clock that is used
@@ -124,7 +128,8 @@ class PlanWaypointEnv(gym.Env):
         # but that should not be used by the agent for decision making, so used for logging and debugging purposes
         # for now just have 10, because it crashed if I gave none for some reason.
         return {
-            "distance": 10
+            "total_reward": self.total_reward,
+            "waypoints_completed": self.waypoints_completed
         }
     
     def _get_reward(self):
@@ -133,6 +138,7 @@ class PlanWaypointEnv(gym.Env):
         # new waypoints spawning continously
 
         reach_reward = self._check_waypoint()
+        self.total_reward += reach_reward
 
         if 0 in self.wpt_reach:
             return reach_reward, 0
@@ -149,6 +155,9 @@ class PlanWaypointEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+
+        self.total_reward = 0
+        self.waypoints_completed = 0
 
         bs.traf.cre('KL001',actype="A320",acspd=AC_SPD)
 
@@ -208,6 +217,7 @@ class PlanWaypointEnv(gym.Env):
         index = 0
         for distance in self.wpt_dis:
             if distance < DISTANCE_MARGIN and self.wpt_reach[index] != 1:
+                self.waypoints_completed += 1
                 self.wpt_reach[index] = 1
                 reward += REACH_REWARD
                 index += 1

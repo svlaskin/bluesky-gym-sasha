@@ -71,6 +71,11 @@ class HorizontalCREnv(gym.Env):
         bs.scr = ScreenDummy()
         bs.stack.stack('DT 5;FF')
 
+        # initialize values used for logging -> input in _get_info
+        self.total_reward = 0
+        self.total_intrusions = 0
+        self.average_drift = np.array([])
+
         self.window = None
         self.clock = None
 
@@ -78,6 +83,10 @@ class HorizontalCREnv(gym.Env):
         super().reset(seed=seed)
         
         bs.traf.reset()
+
+        self.total_reward = 0
+        self.total_intrusions = 0
+        self.average_drift = np.array([])
 
         bs.traf.cre('KL001',actype="A320",acspd=AC_SPD)
 
@@ -208,7 +217,9 @@ class HorizontalCREnv(gym.Env):
         # but that should not be used by the agent for decision making, so used for logging and debugging purposes
         # for now just have 10, because it crashed if I gave none for some reason.
         return {
-            "distance": 10
+            'total_reward': self.total_reward,
+            'total_intrusions': self.total_intrusions,
+            'average_drift': self.average_drift.mean()
         }
 
     def _get_reward(self):
@@ -221,6 +232,7 @@ class HorizontalCREnv(gym.Env):
         intrusion_reward = self._check_intrusion()
 
         total_reward = reach_reward + drift_reward + intrusion_reward
+        self.total_reward += total_reward
 
         if 0 in self.wpt_reach:
             return total_reward, 0
@@ -241,7 +253,9 @@ class HorizontalCREnv(gym.Env):
         return reward
 
     def _check_drift(self):
-        return abs(np.deg2rad(self.drift[0])) * DRIFT_PENALTY
+        drift = abs(np.deg2rad(self.drift[0]))
+        self.average_drift = np.append(self.average_drift, drift)
+        return drift * DRIFT_PENALTY
 
     def _check_intrusion(self):
         ac_idx = bs.traf.id2idx('KL001')
@@ -250,14 +264,15 @@ class HorizontalCREnv(gym.Env):
             int_idx = i+1
             _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
             if int_dis < INTRUSION_DISTANCE:
+                self.total_intrusions += 1
                 reward += INTRUSION_PENALTY
         
         return reward
     
     def _get_action(self,action):
-            action = self.ac_hdg + action * D_HEADING
+        action = self.ac_hdg + action * D_HEADING
 
-            bs.stack.stack(f"HDG KL001 {action[0]}")
+        bs.stack.stack(f"HDG KL001 {action[0]}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
