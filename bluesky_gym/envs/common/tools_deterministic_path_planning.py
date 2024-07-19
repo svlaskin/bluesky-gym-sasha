@@ -587,10 +587,16 @@ def isInside(position,obstacle):
         # Equation (2) of Hormann 2001 Computational Geometry publication
         # computationally expensive version of calculating winding number
         angle.append(acos((vectorA*vectorB)/(vectorA.length()*vectorB.length()))*detSign(vectorA,vectorB))
-    if int(round(sum(angle)/(2*pi))) == 0:
-        inside = False
-    else:
-        inside = True
+    
+    try:
+        if int(round(sum(angle)/(2*pi))) == 0:
+            inside = False
+        else:
+            inside = True
+    except:
+        import code
+        code.interact(local= locals())
+    
     return inside
 
 # use counterclockwise (ccw) and intersect definitions from Bryce Boe's line segment intersection check
