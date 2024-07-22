@@ -28,7 +28,7 @@ csv_logger_callback = logger.CSVLoggerCallback(log_dir, file_name)
 
 TRAIN = True
 EVAL_EPISODES = 10
-# EPOCHS = 2000
+EPOCHS = 2000
 EPOCHS = 20
 
 if __name__ == "__main__":

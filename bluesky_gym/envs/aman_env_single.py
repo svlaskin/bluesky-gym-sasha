@@ -86,6 +86,9 @@ class AmanEnvS(gym.Env):
         bs.scr = ScreenDummy()
         bs.stack.stack('DT 5;FF')
 
+        # initialize values used for logging -> input in _get_info
+        self.total_reward = 0
+
         self.window = None
         self.clock = None
         self.nac = NUM_AC
@@ -233,7 +236,7 @@ class AmanEnvS(gym.Env):
     
     def _get_info(self):
         return {
-            "distance": 10
+            "total_reward": self.total_reward
         }
 
     def _get_reward(self):
@@ -245,9 +248,14 @@ class AmanEnvS(gym.Env):
         # total_reward = intrusion_reward
 
         if 0 in self.wpt_reach:
-            return total_reward, 0
+            reward = 0
+            self.total_reward+=0
+            return reward, 0
         else:
-            return total_reward, 1
+            reward = 1
+            self.total_reward+=1
+            return reward, 1
+        
         
     def _check_waypoint(self):
         reward = 0
