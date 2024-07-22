@@ -162,6 +162,11 @@ class StaticObstacleCREnv(gym.Env):
 
         self._generate_waypoint()
 
+        ac_idx = bs.traf.id2idx('KL001')
+        self.initial_wpt_qdr, _ = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.wpt_lat[0], self.wpt_lon[0])
+        bs.traf.hdg[ac_idx] = self.initial_wpt_qdr
+        bs.traf.ap.trk[ac_idx] = self.initial_wpt_qdr
+
         observation = self._get_obs()
 
         info = self._get_info()
@@ -537,15 +542,8 @@ class StaticObstacleCREnv(gym.Env):
         heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx('KL001')] + dh)
         speed_new = (bs.traf.tas[bs.traf.id2idx('KL001')] + dv) * MpS2Kt
 
-        # print(speed_new)
         bs.stack.stack(f"HDG {'KL001'} {heading_new}")
         bs.stack.stack(f"SPD {'KL001'} {speed_new}")
-        
-        # action_hdg = self.ac_hdg + action[0] * D_HEADING
-        # action_spd = (self.ac_tas + action[1] * D_SPEED)*MpS2Kt
-
-        # bs.stack.stack(f"HDG KL001 {action_hdg}")
-        # bs.stack.stack(f"SPD KL001 {action_spd}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
@@ -612,12 +610,11 @@ class StaticObstacleCREnv(gym.Env):
         dis = dis*NM2KM
         x_actor = ((np.sin(np.deg2rad(qdr))*dis)/MAX_DISTANCE)*self.window_width
         y_actor = ((-np.cos(np.deg2rad(qdr))*dis)/MAX_DISTANCE)*self.window_width
-
         pygame.draw.line(canvas,
             (235, 52, 52),
-            (x_actor-heading_end_x/2, y_actor),
-            (x_actor+heading_end_x/2, y_actor),
-            width = 4
+            (x_actor, y_actor),
+            (x_actor+heading_end_x, y_actor-heading_end_y),
+            width = 5
         )
 
         # draw heading line
@@ -710,7 +707,7 @@ class StaticObstacleCREnv(gym.Env):
 
             if reach:
                 color = (155,155,155)
-                color_actor_target = (18, 14, 120)
+                color_actor_target = (5, 128, 9)
             else:
                 color = (255,255,255)
                 color_actor_target = (235, 52, 52)
@@ -739,7 +736,10 @@ class StaticObstacleCREnv(gym.Env):
         pygame.display.update()
         
         self.clock.tick(self.metadata["render_fps"])
-        # pygame.time.wait(10**5)
+
+        if self.counter == 1:
+            pygame.time.wait(100)
+
 
     def close(self):
         pass
