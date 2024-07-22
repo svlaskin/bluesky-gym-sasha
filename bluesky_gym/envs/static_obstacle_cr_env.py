@@ -121,6 +121,12 @@ class StaticObstacleCREnv(gym.Env):
         # initialize dummy screen and set correct sim speed
         bs.scr = ScreenDummy()
         bs.stack.stack('DT 1;FF')
+        
+        # variables for logging
+        self.total_reward = 0
+        self.waypoint_reached = 0
+        self.crashed = 0
+        self.average_drift = np.array([])
 
         self.obstacle_names = []
 
@@ -132,6 +138,12 @@ class StaticObstacleCREnv(gym.Env):
         
         bs.traf.reset()
         self.counter = 0
+
+        # reset logging variables 
+        self.total_reward = 0
+        self.waypoint_reached = 0
+        self.crashed = 0
+        self.average_drift = np.array([])
 
         # bs.tools.areafilter.deleteArea(self.poly_name)
 
@@ -438,7 +450,10 @@ class StaticObstacleCREnv(gym.Env):
         # but that should not be used by the agent for decision making, so used for logging and debugging purposes
         # for now just have 10, because it crashed if I gave none for some reason.
         return {
-            "distance": 10
+            'total_reward': self.total_reward,
+            'waypoint_reached': self.waypoint_reached,
+            'crashed': self.crashed,
+            'average_drift': self.average_drift.mean()
         }
 
     def _get_reward(self):
@@ -453,6 +468,8 @@ class StaticObstacleCREnv(gym.Env):
         
         # total_reward = reach_reward + drift_reward + intrusion_other_ac_reward + intrusion_reward
         total_reward = reach_reward + drift_reward + intrusion_reward
+
+        self.total_reward += total_reward
         if intrusion_terminate:
             return total_reward, 1
         
@@ -466,6 +483,7 @@ class StaticObstacleCREnv(gym.Env):
         index = 0
         for distance in self.destination_waypoint_distance:
             if distance < DISTANCE_MARGIN and self.wpt_reach[index] != 1:
+                self.waypoint_reached = 1
                 self.wpt_reach[index] = 1
                 reward += REACH_REWARD
                 index += 1
@@ -483,7 +501,9 @@ class StaticObstacleCREnv(gym.Env):
         return reward
 
     def _check_drift(self):
-        return abs(np.deg2rad(self.destination_waypoint_drift[0])) * DRIFT_PENALTY
+        drift = abs(np.deg2rad(self.destination_waypoint_drift[0]))
+        self.average_drift = np.append(self.average_drift, drift)
+        return drift * DRIFT_PENALTY
 
     # def _check_intrusion_other_ac(self):
     #     ac_idx = bs.traf.id2idx('KL001')
@@ -506,6 +526,7 @@ class StaticObstacleCREnv(gym.Env):
             # if int_dis < INTRUSION_DISTANCE:
             if bs.tools.areafilter.checkInside(self.obstacle_names[obs_idx], np.array([bs.traf.lat[ac_idx]]), np.array([bs.traf.lon[ac_idx]]), np.array([bs.traf.alt[ac_idx]])):
                 reward += RESTRICTED_AREA_INTRUSION_PENALTY
+                self.crashed = 1
                 terminate = 1
         return reward, terminate
 
