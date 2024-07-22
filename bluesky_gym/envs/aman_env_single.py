@@ -247,15 +247,13 @@ class AmanEnvS(gym.Env):
         drift_reward = self._check_drift()
         intrusion_reward = self._check_intrusion()
 
-        total_reward = drift_reward + intrusion_reward
+        reward = drift_reward + intrusion_reward
         # total_reward = intrusion_reward
 
         if 0 in self.wpt_reach:
-            reward = 0
             self.total_reward+=0
             return reward, 0
         else:
-            reward = 1
             self.total_reward+=1
             return reward, 1
         
