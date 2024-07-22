@@ -31,7 +31,7 @@ EVAL_EPISODES = 10
 EPOCHS = 200
 
 if __name__ == "__main__":
-    env = gym.make(env_name, render_mode='human')
+    env = gym.make(env_name, render_mode=None)
     obs, info = env.reset()
     model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
     if TRAIN:
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     env.close()
     
     # Test the trained model
-    # model = algorithm.load(f"models/{env_name}_{str(algorithm.__name__)}/model", env=env)
+    model = algorithm.load(f"models/{env_name}_{str(algorithm.__name__)}/model", env=env)
     env = gym.make(env_name, render_mode="human")
     for i in range(EVAL_EPISODES):
 
@@ -49,9 +49,9 @@ if __name__ == "__main__":
         obs, info = env.reset()
         tot_rew = 0
         while not (done or truncated):
-            action = np.array(np.random.randint(-100,100,size=(2))/100)
-            action = np.array([0,-1])
-            # action, _states = model.predict(obs, deterministic=True)
+            # action = np.array(np.random.randint(-100,100,size=(2))/100)
+            # action = np.array([0,-1])
+            action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, truncated, info = env.step(action[()])
             tot_rew += reward
         print(tot_rew)

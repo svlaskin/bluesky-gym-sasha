@@ -36,9 +36,9 @@ def gray(text):
 DISTANCE_MARGIN = 5 # km
 REACH_REWARD = 1 # reach set waypoint
 
-DRIFT_PENALTY = -0.1
-AC_INTRUSION_PENALTY = -1
-RESTRICTED_AREA_INTRUSION_PENALTY = -1
+DRIFT_PENALTY = -0.01
+AC_INTRUSION_PENALTY = -5
+RESTRICTED_AREA_INTRUSION_PENALTY = -5
 
 # NUM_INTRUDERS = 5
 INTRUSION_DISTANCE = 5 # NM
@@ -185,18 +185,18 @@ class StaticObstacleCREnv(gym.Env):
             bs.sim.step()
             if self.render_mode == "human":
                 self._render_frame()
-            reward, terminated = self._get_reward()
+            reward, done, terminated = self._get_reward()
             if terminated:
                 observation = self._get_obs()
                 info = self._get_info()
                 return observation, reward, terminated, False, info
 
         observation = self._get_obs()
-        reward, terminated = self._get_reward()
-
+        reward, done, terminated = self._get_reward()
+        self.total_reward += reward
         info = self._get_info()
 
-        return observation, reward, terminated, False, info
+        return observation, reward, done, terminated, info
 
     def _generate_polygon(self, centre):
         poly_area = np.random.randint(POLY_AREA_RANGE[0]*2, POLY_AREA_RANGE[1])
@@ -442,7 +442,7 @@ class StaticObstacleCREnv(gym.Env):
                 "destination_waypoint_cos_drift": np.array(self.destination_waypoint_cos_drift),
                 "destination_waypoint_sin_drift": np.array(self.destination_waypoint_sin_drift),
                 # observations on obstacles
-                "restricted_area_radius": np.array(self.obstacle_radius)/WAYPOINT_DISTANCE_MAX,
+                "restricted_area_radius": np.array(self.obstacle_radius)/(POLY_AREA_RANGE[0]),
                 "restricted_area_distance": np.array(self.obstacle_centre_distance)/WAYPOINT_DISTANCE_MAX,
                 "cos_difference_restricted_area_pos": np.array(self.obstacle_centre_cos_bearing),
                 "sin_difference_restricted_area_pos": np.array(self.obstacle_centre_sin_bearing),
@@ -473,15 +473,14 @@ class StaticObstacleCREnv(gym.Env):
         
         # total_reward = reach_reward + drift_reward + intrusion_other_ac_reward + intrusion_reward
         total_reward = reach_reward + drift_reward + intrusion_reward
-
-        self.total_reward += total_reward
-        if intrusion_terminate:
-            return total_reward, 1
         
-        if self.wpt_reach[0] == 0:
-            return total_reward, 0
-        else:
-            return total_reward, 1
+        done = 0
+        if self.wpt_reach[0] == 1:
+            done = 1
+        elif intrusion_terminate:
+            done = 1
+        
+        return total_reward, done, False
     
     def _check_waypoint(self):
         reward = 0
