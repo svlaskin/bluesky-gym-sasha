@@ -189,6 +189,7 @@ class StaticObstacleCREnv(gym.Env):
             if terminated:
                 observation = self._get_obs()
                 info = self._get_info()
+                self.total_reward += reward
                 return observation, reward, terminated, False, info
 
         observation = self._get_obs()
