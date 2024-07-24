@@ -2,6 +2,6 @@
 .DS_store
 .vscode
 TODO.txt
-logs/
 images/
+logs/
 models/
