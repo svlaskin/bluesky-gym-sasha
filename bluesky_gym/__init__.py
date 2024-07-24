@@ -33,7 +33,7 @@ def register_envs():
     )
 
     register(
-        id="StaticObstacleCREnv-v0",
-        entry_point="bluesky_gym.envs.static_obstacle_cr_env:StaticObstacleCREnv",
+        id="StaticObstacleEnv-v0",
+        entry_point="bluesky_gym.envs.static_obstacle_env:StaticObstacleEnv",
         max_episode_steps=100,
     )
