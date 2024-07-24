@@ -28,7 +28,6 @@ FL2M = 30.48
 
 INTRUSION_DISTANCE = 5 # NM
 
-
 # Model parameters
 ACTION_FREQUENCY = 5
 NUM_AC_STATE = 4
@@ -221,9 +220,7 @@ class SectorCREnv(gym.Env):
             bs.traf.cre(acid=str(i), actype=AC_TYPE, aclat=init_pos[0], aclon=init_pos[1], achdg=hdg, acspd=AC_SPD)
     
     def _get_info(self):
-        # Here you implement any additional info that you want to return after a step,
-        # but that should not be used by the agent for decision making, so used for logging and debugging purposes
-        # for now just have 10, because it crashed if I gave none for some reason.
+        # Here you implement any additional info that you want to log after an episode
         return {
             'total_reward': self.total_reward,
             'total_intrusions': self.total_intrusions,
@@ -325,7 +322,6 @@ class SectorCREnv(gym.Env):
         # print(speed_new)
         bs.stack.stack(f"HDG {ACTOR} {heading_new}")
         bs.stack.stack(f"SPD {ACTOR} {speed_new}")
-
 
     def _check_drift(self):
         drift = abs(np.deg2rad(self.drift))
