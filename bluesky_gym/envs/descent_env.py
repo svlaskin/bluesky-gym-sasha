@@ -2,7 +2,7 @@ import numpy as np
 import pygame
 
 import bluesky as bs
-from bluesky.simulation import ScreenIO
+from bluesky_gym.envs.common.screen_dummy import ScreenDummy
 
 import gymnasium as gym
 from gymnasium import spaces
@@ -28,15 +28,6 @@ TARGET_ALT_DIF = 500
 AC_SPD = 150
 
 ACTION_FREQUENCY = 30
-
-class ScreenDummy(ScreenIO):
-    """
-    Dummy class for the screen. Inherits from ScreenIO to make sure all the
-    necessary methods are there. This class is there to reimplement the echo
-    method so that console messages are ignored.
-    """
-    def echo(self, text='', flags=0):
-        pass
 
 class DescentEnv(gym.Env):
     """ 
