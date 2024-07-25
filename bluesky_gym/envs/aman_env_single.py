@@ -31,16 +31,21 @@ NM2KM = 1.852
 
 ACTION_FREQUENCY = 10
 
-NUM_AC = 2
+NUM_AC = 15
 NUM_WAYPOINTS = 1
 
-# Fix, north of EHAM in Heiloo
-FIX_LAT = 52.59382191779792 # change to FAF
-FIX_LON = 4.722605450577005
+# Final approach fix, north of EHAM in Heiloo
+# FIX_LAT = 52.59382191779792 # change to FAF
+# FIX_LON = 4.722605450577005
 
 # end of polderbaan EHAM
 RWY_LAT = 52.36239301495972
 RWY_LON = 4.713195734579777
+
+# Alternative - FAF at a distance
+distance_faf_rwy = 400 # NM, initial assumption 
+bearing_faf_rwy = 0
+FIX_LAT, FIX_LON = fn.get_point_at_distance(RWY_LAT, RWY_LON, distance_faf_rwy, bearing_faf_rwy)
 
 # spawn location ownship
 ACLAT_INIT = 52.97843850741256
@@ -93,6 +98,10 @@ class AmanEnvS(gym.Env):
         self.clock = None
         self.nac = NUM_AC
         self.wpt_reach = np.zeros(NUM_AC)
+        self.rwy_lat = RWY_LAT
+        self.rwy_lon = RWY_LON
+        self.faf_lat = FIX_LAT
+        self.faf_lon = FIX_LON
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -103,7 +112,7 @@ class AmanEnvS(gym.Env):
         # ownship
         # random spawn
         bearing_to_pos = random.uniform(-D_HEADING, D_HEADING) # heading radial towards FAF
-        distance_to_pos = random.uniform(50,300) # distance to faf 
+        distance_to_pos = random.uniform(150,300) # distance to faf 
         # distance_to_pos = 50
         rlat, rlon = fn.get_point_at_distance(FIX_LAT, FIX_LON, distance_to_pos, bearing_to_pos)
 
@@ -211,8 +220,9 @@ class AmanEnvS(gym.Env):
             self.waypoint_distance.append(wpt_dis * NM2KM)
             self.wpt_qdr.append(wpt_qdr)
             # FAF
-            faf_qdr, faf_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[int_idx], bs.traf.lon[int_idx], self.wpt_lat, self.wpt_lon)
+            faf_qdr, faf_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[int_idx], bs.traf.lon[int_idx], self.faf_lat, self.faf_lon)
             drift = self.ac_hdg - faf_qdr
+            # drift = self.ac_hdg-wpt_qdr
             drift = fn.bound_angle_positive_negative_180(drift)
             if self.wpt_reach[i]:
                 drift = self.ac_hdg - wpt_qdr
@@ -239,7 +249,8 @@ class AmanEnvS(gym.Env):
     
     def _get_info(self):
         return {
-            "total_reward": self.total_reward
+            "total_reward": self.total_reward,
+            "reached": self.wpt_reach
         }
 
     def _get_reward(self):
@@ -248,14 +259,14 @@ class AmanEnvS(gym.Env):
         intrusion_reward = self._check_intrusion()
 
         reward = drift_reward + intrusion_reward
-        # total_reward = intrusion_reward
+        # reward = intrusion_reward
 
         if 0 in self.wpt_reach:
             self.total_reward+=0
             return reward, 0
         else:
-            self.total_reward+=1
-            return reward, 1
+            self.total_reward+=10
+            return reward, 10
         
         
     def _check_waypoint(self):
@@ -263,7 +274,7 @@ class AmanEnvS(gym.Env):
         index = 0
         for distance in self.waypoint_distance:
             if distance < DISTANCE_MARGIN and self.wpt_reach[index] != 1:
-                self.wpt_reach[index] = 1
+                self.wpt_reach[index] = 50
                 # bs.traf.delete(0)
                 bs.stack.stack(f"KL001 delrte")
                 f"KL001 addwpt {RWY_LAT} {RWY_LON}"
@@ -290,22 +301,20 @@ class AmanEnvS(gym.Env):
     def _check_arrival(self):
         for i in range(NUM_AC): # excluding ownship
             int_idx = i
-            _, rwy_dis = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, bs.traf.lat[int_idx], bs.traf.lon[int_idx])
+            _, rwy_dis = bs.tools.geo.kwikqdrdist(self.faf_lat, self.faf_lon, bs.traf.lat[int_idx], bs.traf.lon[int_idx])
             if rwy_dis < INTRUSION_DISTANCE:
+                reward +=100
                 self.terminated[i] = True
         # return reward
     
-    # action is currently limited to speed change
-    # def _get_action(self,action):
-    #         action = self.ac_hdg + action * D_HEADING
-    #         bs.stack.stack(f"HDG KL001 {action[0]}")
 
     def _get_action(self,action):
         action_speed = self.ac_spd + action[0] * D_SPEED
         action_heading = self.ac_hdg + action[1] * D_HEADING
-
+        # only do change IF FAF NOT REACHED
         bs.stack.stack(f"KL001 SPD {action_speed}")
-        bs.stack.stack(f"KL001 HDG {action_heading}")
+        if self.wpt_reach[0]==1:
+            bs.stack.stack(f"KL001 HDG {action_heading}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
@@ -316,7 +325,7 @@ class AmanEnvS(gym.Env):
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        max_distance = 200 # width of screen in km
+        max_distance = 700 # width of screen in km
 
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235)) 
@@ -325,7 +334,7 @@ class AmanEnvS(gym.Env):
         # first draw faf at fixed location, only one of these
         for qdr, dis in zip(self.wpt_qdr, self.waypoint_distance):
 
-            circle_x = self.window_width/3
+            circle_x = self.window_width/4.5
             circle_y = self.window_height/2
 
             pygame.draw.circle(
@@ -373,7 +382,7 @@ class AmanEnvS(gym.Env):
             )
 
             # draw rwy start
-            rwy_faf_qdr, rwy_faf_dis = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, RWY_LAT, RWY_LON)
+            rwy_faf_qdr, rwy_faf_dis = bs.tools.geo.kwikqdrdist(self.faf_lat, self.faf_lon, RWY_LAT, RWY_LON)
             x_pos = (circle_x)+(np.cos(np.deg2rad(rwy_faf_qdr))*(rwy_faf_dis * NM2KM)/max_distance)*self.window_width
             y_pos = (circle_y)-(np.sin(np.deg2rad(rwy_faf_qdr))*(rwy_faf_dis * NM2KM)/max_distance)*self.window_height
             heading_length = 5000
@@ -393,7 +402,7 @@ class AmanEnvS(gym.Env):
         heading_end_x = ((np.cos(np.deg2rad(self.ac_hdg)) * ac_length)/max_distance)*self.window_width
         heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * ac_length)/max_distance)*self.window_width
 
-        own_qdr, own_dis = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, bs.traf.lat[ac_idx], bs.traf.lon[ac_idx])
+        own_qdr, own_dis = bs.tools.geo.kwikqdrdist(self.faf_lat, self.faf_lon, bs.traf.lat[ac_idx], bs.traf.lon[ac_idx])
         x_pos = (circle_x)+(np.cos(np.deg2rad(own_qdr))*(own_dis * NM2KM)/max_distance)*self.window_width
         y_pos = (circle_y)-(np.sin(np.deg2rad(own_qdr))*(own_dis * NM2KM)/max_distance)*self.window_height
         pygame.draw.line(canvas,
@@ -424,7 +433,7 @@ class AmanEnvS(gym.Env):
             heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
             heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
 
-            int_qdr, int_dis = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, bs.traf.lat[int_idx], bs.traf.lon[int_idx])
+            int_qdr, int_dis = bs.tools.geo.kwikqdrdist(self.faf_lat, self.faf_lon, bs.traf.lat[int_idx], bs.traf.lon[int_idx])
             # int_qdr, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[0], bs.traf.lon[0], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
 
             # determine color
