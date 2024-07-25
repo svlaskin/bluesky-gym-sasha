@@ -33,9 +33,9 @@ EVAL_EPISODES = 10
 if __name__ == "__main__":
     env = gym.make(env_name, render_mode=None)
     obs, info = env.reset()
-    model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=10e-3)
+    model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=3e-3)
     if TRAIN:
-        model.learn(total_timesteps=100000, callback=csv_logger_callback)
+        model.learn(total_timesteps=20000, callback=csv_logger_callback)
         model.save(f"models/{env_name}_{str(algorithm.__name__)}/model")
         del model
     env.close()
