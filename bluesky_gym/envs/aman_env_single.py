@@ -256,7 +256,7 @@ class AmanEnvS(gym.Env):
             "distances": np.array(self.distances[:NUM_AC_STATE]/250)
         }
 
-        self.average_drift.append(drift)
+        
         return observation
     
     def _get_info(self):
@@ -289,7 +289,9 @@ class AmanEnvS(gym.Env):
         return reward
 
     def _check_drift(self):
-        return abs(np.deg2rad(self.drift)) * DRIFT_PENALTY
+        drift = abs(np.deg2rad(self.drift))
+        self.average_drift.append(drift)
+        return drift * DRIFT_PENALTY
 
     def _check_intrusion(self):
         ac_idx = bs.traf.id2idx('KL001')
