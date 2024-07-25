@@ -76,6 +76,7 @@ class AmanEnvS(gym.Env):
                 "sin(drift)": spaces.Box(-1, 1, shape=(1,), dtype=np.float64),
                 "airspeed": spaces.Box(-np.inf, np.inf, shape=(1,), dtype=np.float64),
                 "waypoint_dist": spaces.Box(-np.inf, np.inf, shape=(1,), dtype=np.float64),
+                "faf_reached": spaces.Box(0, 1, shape=(1,), dtype=np.float64),
                 "x_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "y_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "vx_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
@@ -247,6 +248,7 @@ class AmanEnvS(gym.Env):
             "sin(drift)": np.array(self.sin_drift),
             "airspeed": np.array(self.airspeed),
             "waypoint_dist": np.array([self.waypoint_dist/250]),
+            "faf_reached": np.array([self.wpt_reach]),
             "x_r": np.array(self.x_r[:NUM_AC_STATE]/1000000),
             "y_r": np.array(self.y_r[:NUM_AC_STATE]/1000000),
             "vx_r": np.array(self.vx_r[:NUM_AC_STATE]/150),
@@ -256,7 +258,6 @@ class AmanEnvS(gym.Env):
             "distances": np.array(self.distances[:NUM_AC_STATE]/250)
         }
 
-        
         return observation
     
     def _get_info(self):
@@ -305,7 +306,10 @@ class AmanEnvS(gym.Env):
         return reward    
 
     def _get_action(self,action):
-        dh = action[0] * D_HEADING
+        if not self.wpt_reach:
+            dh = action[0] * D_HEADING
+        else:
+            dh = -self.drift
         dv = action[1] * D_SPEED
         heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx('KL001')] + dh)
         speed_new = (bs.traf.tas[bs.traf.id2idx('KL001')] + dv) * MpS2Kt
