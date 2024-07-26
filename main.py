@@ -35,7 +35,7 @@ if __name__ == "__main__":
     obs, info = env.reset()
     model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
     if TRAIN:
-        model.learn(total_timesteps=2e6, callback=csv_logger_callback)
+        model.learn(total_timesteps=25000, callback=csv_logger_callback)
         model.save(f"models/{env_name}_{str(algorithm.__name__)}/model")
         del model
     env.close()

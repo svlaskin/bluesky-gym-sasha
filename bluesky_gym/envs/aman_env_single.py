@@ -10,11 +10,11 @@ from gymnasium import spaces
 
 import random
 
-DISTANCE_MARGIN = 5 # km
+DISTANCE_MARGIN = 10 # km
 REACH_REWARD = 1
 
 DRIFT_PENALTY = -0.1
-INTRUSION_PENALTY = -1
+INTRUSION_PENALTY = 0
 
 # NUM_WAYPOINTS = 1
 INTRUSION_DISTANCE = 4 # NM
@@ -135,8 +135,8 @@ class AmanEnvS(gym.Env):
 
         # bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= 52.97843850741256, aclon=4.511017581418151, achdg=180)
         bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= rlat, aclon= rlon, achdg=bearing_to_pos-180,acalt=10000)
-        bs.stack.stack(f"KL001 addwpt {FIX_LAT} {FIX_LON}")
-        bs.stack.stack(f"KL001 dest {RWY_LAT} {RWY_LON}")
+        # bs.stack.stack(f"KL001 addwpt {FIX_LAT} {FIX_LON}")
+        # bs.stack.stack(f"KL001 dest {RWY_LAT} {RWY_LON}")
 
         self._gen_aircraft()
         observation = self._get_obs()
@@ -269,7 +269,7 @@ class AmanEnvS(gym.Env):
         }
 
     def _get_reward(self):
-        reach_reward = self._check_waypoint()
+        reach_reward, done = self._check_waypoint()
         drift_reward = self._check_drift()
         intrusion_reward = self._check_intrusion()
 
@@ -277,22 +277,29 @@ class AmanEnvS(gym.Env):
 
         self.total_reward += reward
 
-        return reward, 0
+        return reward, done
         
         
     def _check_waypoint(self):
         reward = 0
         index = 0
+        done = 0
         if self.waypoint_dist < DISTANCE_MARGIN and self.wpt_reach != 1:
             self.wpt_reach = 1
             self.faf_reached = 1
             reward += REACH_REWARD
-        return reward
+        elif self.waypoint_dist < 2*DISTANCE_MARGIN and self.wpt_reach == 1:
+            self.faf_reached = 2
+            done = 1 
+        return reward, done
 
     def _check_drift(self):
         drift = abs(np.deg2rad(self.drift))
         self.average_drift.append(drift)
+        # if not self.wpt_reach:
         return drift * DRIFT_PENALTY
+        # else:
+            # return (drift-1.5) * 10 * DRIFT_PENALTY
 
     def _check_intrusion(self):
         ac_idx = bs.traf.id2idx('KL001')
@@ -302,14 +309,17 @@ class AmanEnvS(gym.Env):
             _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
             if int_dis < INTRUSION_DISTANCE:
                 self.total_intrusions += 1
+                # if not self.wpt_reach:
                 reward += INTRUSION_PENALTY
+                # else:
+                    # reward += 0.1 * INTRUSION_PENALTY
         return reward    
 
     def _get_action(self,action):
-        if not self.wpt_reach:
-            dh = action[0] * D_HEADING
-        else:
-            dh = -self.drift
+        # if not self.wpt_reach:
+        dh = action[0] * D_HEADING
+        # else:
+        #     dh = -self.drift
         dv = action[1] * D_SPEED
         heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx('KL001')] + dh)
         speed_new = (bs.traf.tas[bs.traf.id2idx('KL001')] + dv) * MpS2Kt
@@ -332,7 +342,7 @@ class AmanEnvS(gym.Env):
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235)) 
 
-        circle_x = self.window_width/3
+        circle_x = self.window_width/1.2
         circle_y = self.window_height/2
 
         pygame.draw.circle(
