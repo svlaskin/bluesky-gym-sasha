@@ -11,7 +11,7 @@ def time_steps_per_episode(df):
     return time_steps
 
 env = "AMANEnvS-v0"
-ave_window = 100
+ave_window = 500
 
 # drift01 = pd.read_csv(f'logs/{env}/drift01.csv')
 # drift001 = pd.read_csv(f'logs/{env}/drift001.csv')
@@ -21,16 +21,18 @@ ave_window = 100
 sac = pd.read_csv(f'logs/{env}/{env}_SAC.csv')
 # sac2 = pd.read_csv(f'logs/{env}/{env}_SAC_2.csv')
 
-name = 'average_drift'
-name2 = 'faf_reach'
+name = 'total_reward'
+name2 = 'total_intrusions'
+name3 = 'average_drift'
 
 # plt.plot(drift01['timesteps'][:-(ave_window-1)],moving_average(drift01[name],ave_window),label='drift01')
 # plt.plot(drift001['timesteps'][:-(ave_window-1)],moving_average(drift001[name],ave_window),label='drift001')
 # plt.plot(drift001int10['timesteps'][:-(ave_window-1)],moving_average(drift001int10[name],ave_window),label='drift001int10')
 # plt.plot(cont['timesteps'][:-(ave_window-1)],moving_average(cont[name],ave_window),label='cont')
 # plt.plot(test['timesteps'][:-(ave_window-1)],moving_average(test[name],ave_window),label='test')
-plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name],ave_window),label='sac')
-plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name2],ave_window),label='sac_faf')
+plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name],ave_window),label='reward')
+plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name2],ave_window),label='intrusions')
+plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name3],ave_window),label='drift')
 # plt.plot(sac2['timesteps'][:-(ave_window-1)],moving_average(sac2[name],ave_window),label='sac2')
 # ppo = pd.read_csv(f'logs/{env}/{env}_PPO.csv')
 # sac = pd.read_csv(f'logs/{env}/{env}_SAC.csv')
