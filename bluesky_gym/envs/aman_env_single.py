@@ -16,7 +16,6 @@ REACH_REWARD = 1
 DRIFT_PENALTY = -0.1
 INTRUSION_PENALTY = -1
 
-# NUM_WAYPOINTS = 1
 INTRUSION_DISTANCE = 4 # NM
 
 SPAWN_DISTANCE_MIN = 50
@@ -39,22 +38,12 @@ NUM_AC = 20
 NUM_AC_STATE = 5
 NUM_WAYPOINTS = 1
 
-# Final approach fix, north of EHAM in Heiloo
-# FIX_LAT = 52.59382191779792 # change to FAF
-# FIX_LON = 4.722605450577005
-
-# end of polderbaan EHAM
 RWY_LAT = 52.36239301495972
 RWY_LON = 4.713195734579777
 
-# Alternative - FAF at a distance
-distance_faf_rwy = 200 # NM, initial assumption 
+distance_faf_rwy = 200 # NM
 bearing_faf_rwy = 0
 FIX_LAT, FIX_LON = fn.get_point_at_distance(RWY_LAT, RWY_LON, distance_faf_rwy, bearing_faf_rwy)
-
-# spawn location ownship
-ACLAT_INIT = 52.97843850741256
-ACLON_INIT = 4.511017581418151
 
 class AmanEnvS(gym.Env):
     """ 
@@ -66,9 +55,6 @@ class AmanEnvS(gym.Env):
         self.window_width = 750
         self.window_height = 500
         self.window_size = (self.window_width, self.window_height) # Size of the rendered environment
-
-
-        # Observation space should include info of all aircraft
 
         self.observation_space = spaces.Dict(
             {
@@ -125,20 +111,16 @@ class AmanEnvS(gym.Env):
         self.total_intrusions = 0
         self.faf_reached = 0
 
-        # ownship
-        # random spawn
+        # ownship spawn location
         bearing_to_pos = random.uniform(-D_HEADING, D_HEADING) # heading radial towards FAF
         distance_to_pos = random.uniform(SPAWN_DISTANCE_MIN,SPAWN_DISTANCE_MAX)  # distance to faf 
-        # distance_to_pos = 50
         rlat, rlon = fn.get_point_at_distance(FIX_LAT, FIX_LON, distance_to_pos, bearing_to_pos)
 
-
-        # bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= 52.97843850741256, aclon=4.511017581418151, achdg=180)
         bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= rlat, aclon= rlon, achdg=bearing_to_pos-180,acalt=10000)
-        # bs.stack.stack(f"KL001 addwpt {FIX_LAT} {FIX_LON}")
-        # bs.stack.stack(f"KL001 dest {RWY_LAT} {RWY_LON}")
 
+        # generate other aircraft
         self._gen_aircraft()
+
         observation = self._get_obs()
         info = self._get_info()
 
@@ -163,15 +145,12 @@ class AmanEnvS(gym.Env):
         info = self._get_info()
         return observation, reward, terminated, False, info
     
-    # function to generate the aircraft. so far only randomised 'intruders' are generated.
     def _gen_aircraft(self):
         for i in range(NUM_AC-1):
-            # randomise position here
             bearing_to_pos = random.uniform(-D_HEADING, D_HEADING) # heading radial towards FAF
             distance_to_pos = random.uniform(INTRUDER_DISTANCE_MIN,INTRUDER_DISTANCE_MAX) # distance to faf 
-            # distance_to_pos = 50
             lat_ac, lon_ac = fn.get_point_at_distance(self.wpt_lat, self.wpt_lon, distance_to_pos, bearing_to_pos)
-            # create aircraft
+
             bs.traf.cre(f'INT{i}',actype="A320",acspd=AC_SPD,aclat=lat_ac,aclon=lon_ac,achdg=bearing_to_pos-180,acalt=10000)
             bs.stack.stack(f"INT{i} addwpt {FIX_LAT} {FIX_LON}")
             bs.stack.stack(f"INT{i} dest {RWY_LAT} {RWY_LON}")
@@ -181,7 +160,7 @@ class AmanEnvS(gym.Env):
     def _get_obs(self):
 
         ac_idx = 0
-        # Observation vector shape and components
+
         self.cos_drift = np.array([])
         self.sin_drift = np.array([])
         self.airspeed = np.array([])
@@ -193,15 +172,12 @@ class AmanEnvS(gym.Env):
         self.sin_track = np.array([])
         self.distances = np.array([])
 
-        # Drift of agent aircraft for reward calculation
-        drift = 0
-
         ac_hdg = bs.traf.hdg[ac_idx]
         
         # Get and decompose agent aircaft drift
-        if self.wpt_reach == 0:
+        if self.wpt_reach == 0: # pre-faf check
             wpt_qdr, wpt_dist  = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.wpt_lat, self.wpt_lon)
-        else:
+        else: # post-faf check
             wpt_qdr, wpt_dist  = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.rwy_lat, self.rwy_lon)
 
         drift = ac_hdg - wpt_qdr
@@ -212,14 +188,12 @@ class AmanEnvS(gym.Env):
 
         self.waypoint_dist = wpt_dist
 
-        # Get agent aircraft airspeed, m/s
         self.airspeed = np.append(self.airspeed, bs.traf.tas[ac_idx])
-
         vx = np.cos(np.deg2rad(ac_hdg)) * bs.traf.tas[ac_idx]
         vy = np.sin(np.deg2rad(ac_hdg)) * bs.traf.tas[ac_idx]
         
         distances = bs.tools.geo.kwikdist_matrix(bs.traf.lat[0], bs.traf.lon[0], bs.traf.lat[1:],bs.traf.lon[1:])
-        ac_idx_by_dist = np.argsort(distances)
+        ac_idx_by_dist = np.argsort(distances) # sort aircraft by distance to ownship
 
         for i in range(NUM_AC-1):
             ac_idx = ac_idx_by_dist[i]+1
@@ -243,6 +217,7 @@ class AmanEnvS(gym.Env):
 
             self.distances = np.append(self.distances, distances[ac_idx-1])
 
+        # very crude normalization for the observation vectors
         observation = {
             "cos(drift)": np.array(self.cos_drift),
             "sin(drift)": np.array(self.sin_drift),
@@ -277,8 +252,7 @@ class AmanEnvS(gym.Env):
 
         self.total_reward += reward
 
-        return reward, done
-        
+        return reward, done      
         
     def _check_waypoint(self):
         reward = 0
@@ -296,35 +270,25 @@ class AmanEnvS(gym.Env):
     def _check_drift(self):
         drift = abs(np.deg2rad(self.drift))
         self.average_drift.append(drift)
-        # if not self.wpt_reach:
         return drift * DRIFT_PENALTY
-        # else:
-            # return (drift-1.5) * 10 * DRIFT_PENALTY
 
     def _check_intrusion(self):
         ac_idx = bs.traf.id2idx('KL001')
         reward = 0
-        for i in range(NUM_AC-1): # excluding ownship
+        for i in range(NUM_AC-1): 
             int_idx = i+1
             _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
             if int_dis < INTRUSION_DISTANCE:
                 self.total_intrusions += 1
-                # if not self.wpt_reach:
                 reward += INTRUSION_PENALTY
-                # else:
-                    # reward += 0.1 * INTRUSION_PENALTY
         return reward    
 
     def _get_action(self,action):
-        # if not self.wpt_reach:
         dh = action[0] * D_HEADING
-        # else:
-        #     dh = -self.drift
         dv = action[1] * D_SPEED
         heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx('KL001')] + dh)
         speed_new = (bs.traf.tas[bs.traf.id2idx('KL001')] + dv) * MpS2Kt
 
-        # print(speed_new)
         bs.stack.stack(f"HDG KL001 {heading_new}")
         bs.stack.stack(f"SPD KL001 {speed_new}")
 
@@ -360,6 +324,7 @@ class AmanEnvS(gym.Env):
             radius = (DISTANCE_MARGIN/max_distance)*self.window_width,
             width = 2
         )
+
         # draw line to faf
         heading_length = 5000
         heading_end_x = ((np.cos(np.deg2rad(180)) * heading_length)/max_distance)*self.window_width
@@ -402,7 +367,6 @@ class AmanEnvS(gym.Env):
         (circle_x+heading_end_x/2,circle_y-heading_end_y/2),
         width = 4
         )
-        
 
         # draw ownship
         ac_idx = bs.traf.id2idx('KL001')
@@ -442,7 +406,6 @@ class AmanEnvS(gym.Env):
             heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
 
             int_qdr, int_dis = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, bs.traf.lat[int_idx], bs.traf.lon[int_idx])
-            # int_qdr, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[0], bs.traf.lon[0], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
 
             # determine color
             if int_dis < INTRUSION_DISTANCE:
