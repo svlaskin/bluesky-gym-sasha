@@ -270,9 +270,9 @@ class HorizontalCREnv(gym.Env):
         return reward
     
     def _get_action(self,action):
-            action = self.ac_hdg + action * D_HEADING
+        action = self.ac_hdg + action * D_HEADING
 
-            bs.stack.stack(f"HDG KL001 {action[0]}")
+        bs.stack.stack(f"HDG KL001 {action[0]}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":

@@ -18,8 +18,8 @@ from scripts.common import logger
 
 bluesky_gym.register_envs()
 
-env_name = 'AMANEnvS-v0'
-algorithm = DDPG
+env_name = 'StaticObstacleEnv-v0'
+algorithm = SAC
 
 # Initialize logger
 log_dir = f'./logs/{env_name}/'
@@ -44,10 +44,13 @@ if __name__ == "__main__":
     model = algorithm.load(f"models/{env_name}_{str(algorithm.__name__)}/model", env=env)
     env = gym.make(env_name, render_mode="human")
     for i in range(EVAL_EPISODES):
+
         done = truncated = False
         obs, info = env.reset()
         tot_rew = 0
         while not (done or truncated):
+            # action = np.array(np.random.randint(-100,100,size=(2))/100)
+            # action = np.array([0,-1])
             action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, truncated, info = env.step(action[()])
             tot_rew += reward

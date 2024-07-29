@@ -1,5 +1,7 @@
 **/__pycache__/*
 .DS_store
-models/
-logs/
+.vscode
+TODO.txt
 images/
+logs/
+models/
