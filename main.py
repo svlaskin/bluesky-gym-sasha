@@ -19,7 +19,7 @@ from scripts.common import logger
 bluesky_gym.register_envs()
 
 env_name = 'AMANEnvS-v0'
-algorithm = SAC
+algorithm = DDPG
 
 # Initialize logger
 log_dir = f'./logs/{env_name}/'

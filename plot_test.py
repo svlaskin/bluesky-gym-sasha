@@ -19,7 +19,7 @@ ave_window = 500
 # cont = pd.read_csv(f'logs/{env}/continue.csv')
 # test = pd.read_csv(f'logs/{env}/test.csv')
 sac = pd.read_csv(f'logs/{env}/{env}_SAC.csv')
-# sac2 = pd.read_csv(f'logs/{env}/{env}_SAC_2.csv')
+# ppo = pd.read_csv(f'logs/{env}/{env}_PPO_2.csv')
 
 name = 'total_reward'
 name2 = 'total_intrusions'
@@ -33,6 +33,10 @@ name3 = 'average_drift'
 plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name],ave_window),label='reward')
 plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name2],ave_window),label='intrusions')
 plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name3],ave_window),label='drift')
+
+# plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name],ave_window),label='reward_ppo')
+# plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name2],ave_window),label='intrusions_ppo')
+# plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name3],ave_window),label='drift_ppo')
 # plt.plot(sac2['timesteps'][:-(ave_window-1)],moving_average(sac2[name],ave_window),label='sac2')
 # ppo = pd.read_csv(f'logs/{env}/{env}_PPO.csv')
 # sac = pd.read_csv(f'logs/{env}/{env}_SAC.csv')
