@@ -22,7 +22,7 @@ def register_envs():
 
     register(
         id="AMANEnvM-v0",
-        entry_point="bluesky_gym.envs.aman_env_multi:AmanEnv",
+        entry_point="bluesky_gym.envs.aman_env_multi:AmanEnvM",
         max_episode_steps=75,
     )
 

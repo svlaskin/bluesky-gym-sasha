@@ -18,7 +18,7 @@ from scripts.common import logger
 
 bluesky_gym.register_envs()
 
-env_name = 'AMANEnvS-v0'
+env_name = 'AMANEnvM-v0'
 algorithm = SAC
 
 # Initialize logger
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     obs, info = env.reset()
     model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
     if TRAIN:
-        model.learn(total_timesteps=2e6, callback=csv_logger_callback)
+        model.learn(total_timesteps=10000, callback=csv_logger_callback)
         model.save(f"models/{env_name}_{str(algorithm.__name__)}/model")
         del model
     env.close()
