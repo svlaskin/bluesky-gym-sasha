@@ -91,7 +91,7 @@ class AmanEnvM(gym.Env):
             }
         )
        
-        self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=np.float64)
+        self.action_space = spaces.Box(-1, 1, shape=(2*NUM_AC_STATE,), dtype=np.float64)
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -107,6 +107,8 @@ class AmanEnvM(gym.Env):
         self.total_reward = 0
         self.average_drift = []
         self.total_intrusions = 0
+        self.in_int = np.zeros(NUM_AC) # current intrusion status vector
+        self.pair_indices = list(itertools.combinations(np.arange(NUM_AC),2))
         self.faf_reached = np.zeros(NUM_AC)
 
         self.window = None
@@ -128,20 +130,6 @@ class AmanEnvM(gym.Env):
         self.average_drift = []
         self.total_intrusions = 0
         self.faf_reached = np.zeros(NUM_AC)
-        # ------------------------ TODO: remove ownship code bit ----------------------------------------------
-        # ownship
-        # random spawn
-        # bearing_to_pos = random.uniform(-D_HEADING, D_HEADING) # heading radial towards FAF
-        # distance_to_pos = random.uniform(SPAWN_DISTANCE_MIN,SPAWN_DISTANCE_MAX)  # distance to faf 
-        # distance_to_pos = 50
-        # rlat, rlon = fn.get_point_at_distance(FIX_LAT, FIX_LON, distance_to_pos, bearing_to_pos)
-
-
-        # bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= 52.97843850741256, aclon=4.511017581418151, achdg=180)
-        # bs.traf.cre('KL001',actype="A320",acspd=AC_SPD, aclat= rlat, aclon= rlon, achdg=bearing_to_pos-180,acalt=10000)
-        # bs.stack.stack(f"KL001 addwpt {FIX_LAT} {FIX_LON}")
-        # bs.stack.stack(f"KL001 dest {RWY_LAT} {RWY_LON}")
-        # ----------------------- TODO: ^^^ remove dis --------------------------------------------------------
 
         self._gen_aircraft()
         observation = self._get_obs()
@@ -183,7 +171,6 @@ class AmanEnvM(gym.Env):
         bs.stack.stack('reso off')
         return
 
-    # TODO: vectorise
     def _get_obs(self):
 
         # Observation vector shape and components
@@ -281,20 +268,6 @@ class AmanEnvM(gym.Env):
         self.total_reward += reward
 
         return reward, done
-        
-    # TODO: vectorise
-    # def _check_waypoint(self):
-    #     reward = 0
-    #     index = 0
-    #     done = 0
-    #     if self.waypoint_dist < DISTANCE_MARGIN and self.wpt_reach != 1:
-    #         self.wpt_reach = 1
-    #         self.faf_reached = 1
-    #         reward += REACH_REWARD
-    #     elif self.waypoint_dist < 2*DISTANCE_MARGIN and self.wpt_reach == 1:
-    #         self.faf_reached = 2
-    #         done = 1 
-    #     return reward, done
 
     def _check_waypoint(self):
         reward = np.zeros_like(self.waypoint_dist)
@@ -342,43 +315,50 @@ class AmanEnvM(gym.Env):
         
         return wpt_qdr, wpt_dist
     
-    # TODO: vectorise
+    # TODO: vectorise. UNSURE if this works
     def _check_drift(self):
         drift = abs(np.deg2rad(self.drift))
-        self.average_drift.append(drift)
-        # if not self.wpt_reach:
+        self.average_drift.append(np.average(drift))
         return drift * DRIFT_PENALTY
-        # else:
-            # return (drift-1.5) * 10 * DRIFT_PENALTY
 
-    # TODO: vectorise for all AC that are not wpt_reach.
+
+    # TODO: vectorise for all AC that are not wpt_reach. THINK THIS NOW WORKS
     def _check_intrusion(self):
-        ac_idx = bs.traf.id2idx('KL001')
+        pair_indices = self.pair_indices
         reward = 0
-        for i in range(NUM_AC-1): # excluding ownship
-            int_idx = i+1
-            _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
+        for pair in pair_indices:
+            ind1 = pair[0]
+            ind2 = pair[1]
+            _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ind1], bs.traf.lon[ind1], bs.traf.lat[ind2], bs.traf.lon[ind2])
             if int_dis < INTRUSION_DISTANCE:
                 self.total_intrusions += 1
                 # if not self.wpt_reach:
                 reward += INTRUSION_PENALTY
+                self.in_int[ind1] = 1
+                self.in_int[ind2] = 1
                 # else:
                     # reward += 0.1 * INTRUSION_PENALTY
+            else:
+                # intrusion index for render color
+                self.in_int[ind1] = 0
+                self.in_int[ind2] = 0
         return reward    
 
     # TODO: vectorise for multiple AC
     def _get_action(self,action):
-        # if not self.wpt_reach:
-        dh = action[0] * D_HEADING
-        # else:
-        #     dh = -self.drift
-        dv = action[1] * D_SPEED
-        heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx('KL001')] + dh)
-        speed_new = (bs.traf.tas[bs.traf.id2idx('KL001')] + dv) * MpS2Kt
+        for i in range(NUM_AC):
+            action_index = 2*i # map action to flattened action vector.
+            # if not self.wpt_reach:
+            dh = action[action_index] * D_HEADING
+            # else:
+            #     dh = -self.drift
+            dv = action[action_index+1] * D_SPEED
+            heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(f'EXP{i}')] + dh)
+            speed_new = (bs.traf.tas[bs.traf.id2idx(f'EXP{i}')] + dv) * MpS2Kt
 
-        # print(speed_new)
-        bs.stack.stack(f"HDG KL001 {heading_new}")
-        bs.stack.stack(f"SPD KL001 {speed_new}")
+            # print(speed_new)
+            bs.stack.stack(f"HDG EXP{i} {heading_new}")
+            bs.stack.stack(f"SPD EXP{i} {speed_new}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
@@ -394,7 +374,9 @@ class AmanEnvM(gym.Env):
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235)) 
 
-        circle_x = self.window_width/1.2
+        # circle_x = self.window_width/1.2
+        # circle_y = self.window_height/2
+        circle_x = self.window_width/3
         circle_y = self.window_height/2
 
         pygame.draw.circle(
@@ -455,39 +437,40 @@ class AmanEnvM(gym.Env):
         width = 4
         )
         
+        # -=-=-=-=-=-=-=-=-=-= TODO: remove when needed -=-=---=-=-=-=-=-=-=-=-=-=-=-=-=-=
+        # # draw ownship
+        # ac_idx = bs.traf.id2idx('KL001')
+        # ac_length = 8
+        # heading_end_x = ((np.cos(np.deg2rad(bs.traf.hdg[ac_idx])) * ac_length)/max_distance)*self.window_width
+        # heading_end_y = ((np.sin(np.deg2rad(bs.traf.hdg[ac_idx])) * ac_length)/max_distance)*self.window_width
 
-        # draw ownship
-        ac_idx = bs.traf.id2idx('KL001')
-        ac_length = 8
-        heading_end_x = ((np.cos(np.deg2rad(bs.traf.hdg[ac_idx])) * ac_length)/max_distance)*self.window_width
-        heading_end_y = ((np.sin(np.deg2rad(bs.traf.hdg[ac_idx])) * ac_length)/max_distance)*self.window_width
+        # own_qdr, own_dis = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, bs.traf.lat[ac_idx], bs.traf.lon[ac_idx])
+        # x_pos = (circle_x)+(np.cos(np.deg2rad(own_qdr))*(own_dis * NM2KM)/max_distance)*self.window_width
+        # y_pos = (circle_y)-(np.sin(np.deg2rad(own_qdr))*(own_dis * NM2KM)/max_distance)*self.window_height
+        # pygame.draw.line(canvas,
+        #     (0,0,0),
+        #     (x_pos,y_pos),
+        #     ((x_pos)+heading_end_x/2,(y_pos)-heading_end_y/2),
+        #     width = 4
+        # )
 
-        own_qdr, own_dis = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, bs.traf.lat[ac_idx], bs.traf.lon[ac_idx])
-        x_pos = (circle_x)+(np.cos(np.deg2rad(own_qdr))*(own_dis * NM2KM)/max_distance)*self.window_width
-        y_pos = (circle_y)-(np.sin(np.deg2rad(own_qdr))*(own_dis * NM2KM)/max_distance)*self.window_height
-        pygame.draw.line(canvas,
-            (0,0,0),
-            (x_pos,y_pos),
-            ((x_pos)+heading_end_x/2,(y_pos)-heading_end_y/2),
-            width = 4
-        )
+        # # draw heading line
+        # heading_length = 10
+        # heading_end_x = ((np.cos(np.deg2rad(bs.traf.hdg[ac_idx])) * heading_length)/max_distance)*self.window_width
+        # heading_end_y = ((np.sin(np.deg2rad(bs.traf.hdg[ac_idx])) * heading_length)/max_distance)*self.window_width
 
-        # draw heading line
-        heading_length = 10
-        heading_end_x = ((np.cos(np.deg2rad(bs.traf.hdg[ac_idx])) * heading_length)/max_distance)*self.window_width
-        heading_end_y = ((np.sin(np.deg2rad(bs.traf.hdg[ac_idx])) * heading_length)/max_distance)*self.window_width
-
-        pygame.draw.line(canvas,
-            (0,0,0),
-            (x_pos,y_pos),
-            ((x_pos)+heading_end_x,(y_pos)-heading_end_y),
-            width = 1
-        )
+        # pygame.draw.line(canvas,
+        #     (0,0,0),
+        #     (x_pos,y_pos),
+        #     ((x_pos)+heading_end_x,(y_pos)-heading_end_y),
+        #     width = 1
+        # )
+        # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= NOTE: end of remove -=-=-=-=-=-=-=-=-=-=-=-=-
 
         # draw intruders
         ac_length = 3
 
-        for i in range(1,NUM_AC):
+        for i in range(0,NUM_AC):
             int_idx = i
             int_hdg = bs.traf.hdg[int_idx]
             heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * ac_length)/max_distance)*self.window_width
@@ -497,12 +480,13 @@ class AmanEnvM(gym.Env):
             # int_qdr, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[0], bs.traf.lon[0], bs.traf.lat[int_idx], bs.traf.lon[int_idx])
 
             # determine color
-            if int_dis < INTRUSION_DISTANCE:
+            # if int_dis < INTRUSION_DISTANCE:
+            if self.in_int[i]==1:
                 color = (220,20,60)
             else: 
                 color = (80,80,80)
-            if i==0:
-                color = (252, 43, 28)
+            # if i==0:
+            #     color = (252, 43, 28)
 
             x_pos = (circle_x)+(np.cos(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_width
             y_pos = (circle_y)-(np.sin(np.deg2rad(int_qdr))*(int_dis * NM2KM)/max_distance)*self.window_height
