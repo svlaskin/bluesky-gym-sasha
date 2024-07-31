@@ -36,8 +36,8 @@ MpS2Kt = 1.94384
 
 ACTION_FREQUENCY = 10
 
-NUM_AC = 5
-NUM_AC_STATE = 5
+NUM_AC = 10
+NUM_AC_STATE = 10
 NUM_WAYPOINTS = 1
 
 # Final approach fix, north of EHAM in Heiloo
@@ -206,8 +206,8 @@ class AmanEnvM(gym.Env):
         self.waypoint_dist = wpt_dist
         
         # pre-loop: look at nearest aircraft to the FAF
-        distances = bs.tools.geo.kwikdist_matrix(self.wpt_lat, self.wpt_lon, bs.traf.lat,bs.traf.lon)
-        ac_idx_by_dist = np.argsort(distances)
+        distances = self.waypoint_dist
+        ac_idx_by_dist = np.argsort(distances) # TODO: make use of this properly
 
         for i in range(NUM_AC):
             ac_idx = ac_idx_by_dist[i] # sorted by distance to the FAF
@@ -333,7 +333,7 @@ class AmanEnvM(gym.Env):
             if int_dis < INTRUSION_DISTANCE:
                 self.total_intrusions += 1
                 # if not self.wpt_reach:
-                reward += INTRUSION_PENALTY
+                # reward += INTRUSION_PENALTY
                 self.in_int[ind1] = 1
                 self.in_int[ind2] = 1
                 # else:
