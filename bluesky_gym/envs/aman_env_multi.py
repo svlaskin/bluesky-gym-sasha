@@ -115,6 +115,7 @@ class AmanEnvM(gym.Env):
         self.clock = None
         self.nac = NUM_AC
         self.wpt_reach = np.zeros(NUM_AC)
+        self.ac_idx_by_dist = np.zeros(NUM_AC)
         self.wpt_lat = FIX_LAT
         self.wpt_lon = FIX_LON
         self.rwy_lat = RWY_LAT
@@ -207,10 +208,10 @@ class AmanEnvM(gym.Env):
         
         # pre-loop: look at nearest aircraft to the FAF
         distances = self.waypoint_dist
-        ac_idx_by_dist = np.argsort(distances) # TODO: make use of this properly
+        self.ac_idx_by_dist = np.argsort(distances) # TODO: make use of this properly
 
         for i in range(NUM_AC):
-            ac_idx = ac_idx_by_dist[i] # sorted by distance to the FAF
+            ac_idx = self.ac_idx_by_dist[i] # sorted by distance to the FAF
             int_hdg = bs.traf.hdg[ac_idx]
             # Get agent aircraft airspeed, m/s
             self.airspeed = np.append(self.airspeed, bs.traf.tas[ac_idx])
@@ -263,7 +264,8 @@ class AmanEnvM(gym.Env):
         drift_reward = self._check_drift()
         intrusion_reward = self._check_intrusion()
 
-        reward = np.sum(reach_reward) + np.sum(drift_reward) + np.sum(intrusion_reward)
+        # reward = np.sum(reach_reward) + np.sum(drift_reward) + np.sum(intrusion_reward)
+        reward = np.sum(reach_reward) + np.sum(drift_reward)
 
         self.total_reward += reward
 
@@ -333,7 +335,7 @@ class AmanEnvM(gym.Env):
             if int_dis < INTRUSION_DISTANCE:
                 self.total_intrusions += 1
                 # if not self.wpt_reach:
-                # reward += INTRUSION_PENALTY
+                reward += INTRUSION_PENALTY
                 self.in_int[ind1] = 1
                 self.in_int[ind2] = 1
                 # else:
@@ -485,6 +487,9 @@ class AmanEnvM(gym.Env):
                 color = (220,20,60)
             else: 
                 color = (80,80,80)
+
+            if self.wpt_reach[i]:
+                color = (0,255,0)
             # if i==0:
             #     color = (252, 43, 28)
 
