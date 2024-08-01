@@ -208,7 +208,8 @@ class AmanEnvM(gym.Env):
         
         # pre-loop: look at nearest aircraft to the FAF
         distances = self.waypoint_dist
-        self.ac_idx_by_dist = np.argsort(distances) # TODO: make use of this properly
+        # self.ac_idx_by_dist = np.argsort(distances) # TODO: make use of this properly. for now out
+        self.ac_idx_by_dist = np.arange(NUM_AC)
 
         for i in range(NUM_AC):
             ac_idx = self.ac_idx_by_dist[i] # sorted by distance to the FAF
