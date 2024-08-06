@@ -83,8 +83,8 @@ class AmanEnvM(gym.Env):
                 "faf_reached": spaces.Box(0, 1, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "x_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "y_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
-                # "vx_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
-                # "vy_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
+                "vx_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
+                "vy_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "cos(track)": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "sin(track)": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "distances": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64)
@@ -243,8 +243,8 @@ class AmanEnvM(gym.Env):
             "faf_reached": np.array(self.wpt_reach),
             "x_r": np.array(self.x_r[:NUM_AC_STATE]/1000000),
             "y_r": np.array(self.y_r[:NUM_AC_STATE]/1000000),
-            # "vx_r": np.array(self.vx_r[:NUM_AC_STATE]/150),
-            # "vy_r": np.array(self.vy_r[:NUM_AC_STATE]/150),
+            "vx_r": np.array(self.vx_r[:NUM_AC_STATE]/150),
+            "vy_r": np.array(self.vy_r[:NUM_AC_STATE]/150),
             "cos(track)": np.array(self.cos_track[:NUM_AC_STATE]),
             "sin(track)": np.array(self.sin_track[:NUM_AC_STATE]),
             "distances": np.array(self.distances[:NUM_AC_STATE]/250)
@@ -265,8 +265,8 @@ class AmanEnvM(gym.Env):
         drift_reward = self._check_drift()
         intrusion_reward = self._check_intrusion()
 
-        # reward = np.sum(reach_reward) + np.sum(drift_reward) + np.sum(intrusion_reward)
-        reward = np.sum(reach_reward) + np.sum(drift_reward)
+        reward = np.sum(reach_reward) + np.sum(drift_reward) + np.sum(intrusion_reward)
+        # reward = np.sum(reach_reward) + np.sum(drift_reward)
 
         self.total_reward += reward
 
