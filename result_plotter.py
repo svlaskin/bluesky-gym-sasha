@@ -18,6 +18,8 @@ envs = ["DescentEnv-v0","VerticalCREnv-v0","PlanWaypointEnv-v0","HorizontalCREnv
 # Plotting
 ave_window = 1000
 feature = 'total_reward'
+sns.set_theme(style="darkgrid")
+sns.set_context("talk")
 fig, axs = plt.subplots(2, 4, figsize=(20, 8))
 
 for i, ax in enumerate(axs.flatten()[:-1]):
@@ -28,12 +30,15 @@ for i, ax in enumerate(axs.flatten()[:-1]):
     for model in models:
         y_data = pd.read_csv(f'logs_backup/{env}/{env}_{model}.csv')
         sns.lineplot(x=y_data['timesteps'][:-(ave_window-1)],y=moving_average((y_data)[feature],ave_window), legend=False ,ax=ax,label=model)
+        
     ax.set_title(f'{env}',fontsize = 18)
+
 
 
 # Setting the last subplot for the legend
 axs[-1, -1].axis('off')  # Turn off the axis for the legend subplot
 
+sns.set_theme(style="white")
 # Create an invisible plot for the legend
 for model in models:
     axs[-1, -1].plot([], [], label=model)
