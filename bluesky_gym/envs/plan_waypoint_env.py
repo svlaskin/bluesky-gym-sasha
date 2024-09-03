@@ -241,9 +241,10 @@ class PlanWaypointEnv(gym.Env):
         canvas.fill((135,206,235))
 
         # draw ownship
+        ac_idx = bs.traf.id2idx('KL001')
         ac_length = 8
-        heading_end_x = ((np.cos(np.deg2rad(self.ac_hdg)) * ac_length)/max_distance)*self.window_width
-        heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * ac_length)/max_distance)*self.window_width
+        heading_end_x = ((np.cos(np.deg2rad(bs.traf.hdg[ac_idx])) * ac_length)/max_distance)*self.window_width
+        heading_end_y = ((np.sin(np.deg2rad(bs.traf.hdg[ac_idx])) * ac_length)/max_distance)*self.window_width
 
         pygame.draw.line(canvas,
             (0,0,0),
@@ -254,8 +255,8 @@ class PlanWaypointEnv(gym.Env):
 
         # draw heading line
         heading_length = 50
-        heading_end_x = ((np.cos(np.deg2rad(self.ac_hdg)) * heading_length)/max_distance)*self.window_width
-        heading_end_y = ((np.sin(np.deg2rad(self.ac_hdg)) * heading_length)/max_distance)*self.window_width
+        heading_end_x = ((np.cos(np.deg2rad(bs.traf.hdg[ac_idx])) * heading_length)/max_distance)*self.window_width
+        heading_end_y = ((np.sin(np.deg2rad(bs.traf.hdg[ac_idx])) * heading_length)/max_distance)*self.window_width
 
         pygame.draw.line(canvas,
             (0,0,0),
