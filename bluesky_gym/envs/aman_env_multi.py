@@ -11,8 +11,8 @@ from gymnasium import spaces
 import random
 import itertools
 
-DISTANCE_MARGIN = 10 # km
-REACH_REWARD = 10
+DISTANCE_MARGIN = 0.5 # km
+REACH_REWARD = 1
 
 DRIFT_PENALTY = -0.1
 INTRUSION_PENALTY = -1
@@ -28,7 +28,8 @@ INTRUDER_DISTANCE_MIN = 20
 INTRUDER_DISTANCE_MAX = 50
 
 D_HEADING = 45 # 45 degrees each way from desired track
-D_SPEED = 0.5
+# D_SPEED = 0.5
+D_SPEED = 0.1
 
 AC_SPD = 15
 
@@ -37,8 +38,8 @@ MpS2Kt = 1.94384
 
 ACTION_FREQUENCY = 10
 
-NUM_AC = 10
-NUM_AC_STATE = 10
+NUM_AC = 5
+NUM_AC_STATE = 5
 NUM_WAYPOINTS = 1
 
 # Final approach fix, north of EHAM in Heiloo
@@ -50,7 +51,7 @@ RWY_LAT = 52.36239301495972
 RWY_LON = 4.713195734579777
 
 # Alternative - FAF at a distance
-distance_faf_rwy = 200 # NM, initial assumption 
+distance_faf_rwy = 40 # NM, initial assumption 
 bearing_faf_rwy = 0
 FIX_LAT, FIX_LON = fn.get_point_at_distance(RWY_LAT, RWY_LON, distance_faf_rwy, bearing_faf_rwy)
 
@@ -88,7 +89,10 @@ class AmanEnvM(gym.Env):
                 "vy_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "cos(track)": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "sin(track)": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
-                "distances": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64)
+                "distances": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
+                # "intruder_distance": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,NUM_AC_STATE), dtype=np.float64),
+                # "cos_difference_pos": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,NUM_AC_STATE), dtype=np.float64),
+                # "sin_difference_pos": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,NUM_AC_STATE), dtype=np.float64)
             }
         )
        
@@ -108,6 +112,8 @@ class AmanEnvM(gym.Env):
         self.total_reward = 0
         self.average_drift = []
         self.total_intrusions = 0
+        self.average_v_action = []
+        self.average_hdg_action = []
         self.in_int = np.zeros(NUM_AC) # current intrusion status vector
         self.pair_indices = list(itertools.combinations(np.arange(NUM_AC),2))
         self.faf_reached = np.zeros(NUM_AC)
@@ -167,7 +173,7 @@ class AmanEnvM(gym.Env):
             # distance_to_pos = 50
             lat_ac, lon_ac = fn.get_point_at_distance(self.wpt_lat, self.wpt_lon, distance_to_pos, bearing_to_pos)
             # create aircraft
-            bs.traf.cre(f'EXP{i}',actype="M600",acspd=AC_SPD,aclat=lat_ac,aclon=lon_ac,achdg=bearing_to_pos-180,acalt=10000)
+            bs.traf.cre(f'EXP{i}',actype="m600",acspd=AC_SPD,aclat=lat_ac,aclon=lon_ac,achdg=bearing_to_pos-180,acalt=10000)
             bs.stack.stack(f"EXP{i} addwpt {FIX_LAT} {FIX_LON}")
             bs.stack.stack(f"EXP{i} dest {RWY_LAT} {RWY_LON}")
         bs.stack.stack('reso off')
@@ -186,6 +192,9 @@ class AmanEnvM(gym.Env):
         self.cos_track = np.array([])
         self.sin_track = np.array([])
         self.distances = np.array([])
+        # self.intruder_distance = np.array([])
+        # self.cos_difference_pos = np.array([])
+        # self.sin_difference_pos = np.array([])
 
         # Drift of aircraft for reward calculation
         drift = np.zeros(NUM_AC)
@@ -214,7 +223,7 @@ class AmanEnvM(gym.Env):
 
         for i in range(NUM_AC):
             ac_idx = self.ac_idx_by_dist[i] # sorted by distance to the FAF
-            int_hdg = bs.traf.hdg[ac_idx]
+            hdg = bs.traf.hdg[ac_idx]
             # Get agent aircraft airspeed, m/s
             self.airspeed = np.append(self.airspeed, bs.traf.tas[ac_idx])
             
@@ -224,17 +233,20 @@ class AmanEnvM(gym.Env):
             self.y_r = np.append(self.y_r, (dist * NM2KM * 1000) * np.sin(np.deg2rad(brg)))
             
             # AC relative velocity to faf (which is just velocity as it is not moving), m/s
-            vx_int = np.cos(np.deg2rad(int_hdg)) * bs.traf.tas[ac_idx]
-            vy_int = np.sin(np.deg2rad(int_hdg)) * bs.traf.tas[ac_idx]
-            self.vx_r = np.append(self.vx_r, vx_int)
-            self.vy_r = np.append(self.vy_r, vy_int)
+            vx = np.cos(np.deg2rad(hdg)) * bs.traf.tas[ac_idx]
+            vy = np.sin(np.deg2rad(hdg)) * bs.traf.tas[ac_idx]
+            self.vx_r = np.append(self.vx_r, vx)
+            self.vy_r = np.append(self.vy_r, vy)
 
-            # Intruder AC relative track, rad
-            track = np.arctan2(vy_int, vx_int)
+            # AC relative track, rad
+            track = np.arctan2(vy, vx)
             self.cos_track = np.append(self.cos_track, np.cos(track))
             self.sin_track = np.append(self.sin_track, np.sin(track))
-
             self.distances = np.append(self.distances, distances[ac_idx])
+
+            # now redo all for relative to other AC
+            # dist_int, brg_int = bs.tools.geo.kwikqdrdist(bs.traf.lat, bs.traf.lon, bs.traf.lat[ac_idx],bs.traf.lon[ac_idx])
+            # self.intruder_distance = np.append(self.intruder_distance,dist_int)
 
         observation = {
             "cos(drift)": np.array(self.cos_drift[:NUM_AC_STATE]),
@@ -248,7 +260,10 @@ class AmanEnvM(gym.Env):
             "vy_r": np.array(self.vy_r[:NUM_AC_STATE]/150),
             "cos(track)": np.array(self.cos_track[:NUM_AC_STATE]),
             "sin(track)": np.array(self.sin_track[:NUM_AC_STATE]),
-            "distances": np.array(self.distances[:NUM_AC_STATE]/250)
+            "distances": np.array(self.distances[:NUM_AC_STATE]/250),
+            # "intruder_distance": np.array(self.intruder_distance)/5,
+            # "cos_difference_pos": np.array(self.cos_bearing),
+            # "sin_difference_pos": np.array(self.sin_bearing)
         }
 
         return observation
@@ -258,17 +273,20 @@ class AmanEnvM(gym.Env):
             "total_reward": self.total_reward,
             "faf_reach": self.faf_reached,
             "average_drift": np.mean(self.average_drift),
-            "total_intrusions": self.total_intrusions
+            "total_intrusions": self.total_intrusions,
+            "average_vinput": np.mean(self.average_v_action),
+            "average_hdginput": np.mean(self.average_hdg_action)
         }
 
     def _get_reward(self):
         reach_reward, done = self._check_waypoint()
         drift_reward = self._check_drift()
         intrusion_reward = self._check_intrusion()
-        postfaf_reward = self._check_postfaf()
+        # postfaf_reward = self._check_postfaf() # commented out for now
+        # postfaf_reward = 0
 
-        reward = np.sum(reach_reward)/NUM_AC + np.sum(drift_reward)/NUM_AC + np.sum(intrusion_reward)/NUM_AC + np.sum(postfaf_reward)
-        # reward = np.sum(reach_reward) + np.sum(drift_reward)
+        # reward = np.sum(reach_reward)/NUM_AC + np.sum(drift_reward)/NUM_AC + np.sum(intrusion_reward)/NUM_AC + np.sum(postfaf_reward)/NUM_AC
+        reward = np.sum(reach_reward) + np.sum(drift_reward) + np.sum(intrusion_reward)
 
         self.total_reward += reward
 
@@ -349,17 +367,28 @@ class AmanEnvM(gym.Env):
     def _check_postfaf(self):
         pair_indices = self.pair_indices
         reward = 0
+    #     # for pair in pair_indices:
+    #     #     ind1 = pair[0]
+    #     #     ind2 = pair[1]
+    #     #     # if faf reached, velocity diff should be ZERO
+    #     #     if self.faf_reached[ind1]==1 and self.faf_reached[ind2]==1:
+    #     #         vdelt_x = abs(self.vx_r[ind1]-self.vx_r[ind2])
+    #     #         vdelt_y = abs(self.vy_r[ind1]-self.vy_r[ind2])
+    #     #         vdelt = np.sqrt(vdelt_x**2+vdelt_y**2)
+    #     #         reward += VDELT_PENALTY*vdelt
+    #     #     else:
+    #     #         reward = 0
+
+        # rather, try to get the reward in terms of the component in the leader's velocity, namely:
         for pair in pair_indices:
             ind1 = pair[0]
             ind2 = pair[1]
-            # if faf reached, velocity diff should be ZERO
             if self.faf_reached[ind1]==1 and self.faf_reached[ind2]==1:
-                vdelt_x = abs(self.vx_r[ind1]-self.vx_r[ind2])
-                vdelt_y = abs(self.vy_r[ind1]-self.vy_r[ind2])
-                vdelt = np.sqrt(vdelt_x**2+vdelt_y**2)
-                reward += VDELT_PENALTY*vdelt
-            else:
-                reward = 0
+                vec1 = np.array(self.vx_r[ind1],self.vy_r[ind1])
+                vec2 = np.array(self.vx_r[ind2],self.vy_r[ind2])
+                vec12 = np.dot(vec1,vec2/np.linalg.norm(vec2))# 1 projected onto 2
+                reward += VDELT_PENALTY*(np.sqrt((vec12-vec2)**2)) # projected relative velocity should be zero for ideal merge
+        
         return reward    
 
     # TODO: vectorise for multiple AC
@@ -371,13 +400,18 @@ class AmanEnvM(gym.Env):
             # else:
             #     dh = -self.drift
             dv = action[action_index+1] * D_SPEED
+            self.average_v_action.append(dv)
+            self.average_hdg_action.append(dh)
+
             heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(f'EXP{i}')] + dh)
             speed_new = (bs.traf.tas[bs.traf.id2idx(f'EXP{i}')] + dv) * MpS2Kt
 
             # print(speed_new)
             # if self.faf_reached[i]==0:
-            bs.stack.stack(f"HDG EXP{i} {heading_new}")
-            bs.stack.stack(f"SPD EXP{i} {speed_new}")
+            bs.stack.stack(f"HDG EXP`{i} {heading_new}")
+            bs.stack.stack(f"SPD EXP`{i} {speed_new}")
+            # else:
+            #     bs.stack.stack(f"EXP{i} addwpt {RWY_LAT} {RWY_LON}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
@@ -388,7 +422,8 @@ class AmanEnvM(gym.Env):
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        max_distance = 500 # width of screen in km
+        # max_distance = 500 # width of screen in km
+        max_distance = 50
 
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235)) 
@@ -457,7 +492,7 @@ class AmanEnvM(gym.Env):
         )
 
         # draw aircraft  
-        ac_length = 3
+        ac_length = 1
 
         for i in range(0,NUM_AC):
             int_idx = i
@@ -491,7 +526,7 @@ class AmanEnvM(gym.Env):
             )
 
             # draw heading line
-            heading_length = 10
+            heading_length = 2
             heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * heading_length)/max_distance)*self.window_width
             heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * heading_length)/max_distance)*self.window_width
 
