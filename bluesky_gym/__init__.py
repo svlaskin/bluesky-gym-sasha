@@ -1,5 +1,6 @@
 from gymnasium.envs.registration import register
-
+from .utils import *
+ 
 def register_envs():
     """Import the envs module so that environments / scenarios register themselves."""
     register(

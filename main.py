@@ -14,7 +14,7 @@ import numpy as np
 import bluesky_gym
 import bluesky_gym.envs
 
-from scripts.common import logger
+from bluesky_gym.utils import logger
 
 bluesky_gym.register_envs()
 
