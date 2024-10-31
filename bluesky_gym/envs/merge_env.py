@@ -306,7 +306,7 @@ class MergeEnv(gym.Env):
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235)) 
 
-        circle_x = self.window_width/1.2
+        circle_x = self.window_width/2
         circle_y = self.window_height/2
 
         pygame.draw.circle(
