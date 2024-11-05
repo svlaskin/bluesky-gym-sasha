@@ -19,7 +19,7 @@ from scripts.common import logger
 bluesky_gym.register_envs()
 
 env_name = 'AMANEnvM-v0'
-algorithm = SAC
+algorithm = DDPG
 
 # Initialize logger
 log_dir = f'./logs/{env_name}/'
@@ -29,13 +29,12 @@ csv_logger_callback = logger.CSVLoggerCallback(log_dir, file_name)
 TRAIN = True
 EVAL_EPISODES = 10
 
-
 if __name__ == "__main__":
     env = gym.make(env_name, render_mode=None)
     obs, info = env.reset()
     model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=2*3e-4)
     if TRAIN:
-        model.learn(total_timesteps=600000, callback=csv_logger_callback)
+        model.learn(total_timesteps=500000, callback=csv_logger_callback)
         model.save(f"models/{env_name}_{str(algorithm.__name__)}/model")
         del model
     env.close()
@@ -47,7 +46,7 @@ if __name__ == "__main__":
     # model = algorithm.load(f"models/{env_name}_{str(algorithm.__name__)}/model", env=env)
     env = gym.make(env_name, render_mode="human")
     for i in range(EVAL_EPISODES):
-        done = truncated = False
+        done = truncated = False 
         obs, info = env.reset()
         tot_rew = 0
         while not (done or truncated):

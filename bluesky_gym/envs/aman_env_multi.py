@@ -1,6 +1,8 @@
 import numpy as np
 import pygame
-
+import sys
+# sys.path.insert(0, 'blueskyy/')
+import bluesky
 import bluesky as bs
 from bluesky_gym.envs.common.screen_dummy import ScreenDummy
 import bluesky_gym.envs.common.functions as fn
@@ -15,21 +17,24 @@ DISTANCE_MARGIN = 0.5 # km
 REACH_REWARD = 1
 
 DRIFT_PENALTY = -0.1
+# DRIFT_PENALTY = 0
 INTRUSION_PENALTY = -1
 VDELT_PENALTY = -0.05
 
 # NUM_WAYPOINTS = 1
-INTRUSION_DISTANCE = 0.4 # NM
+# INTRUSION_DISTANCE = 0.4 # NM
+INTRUSION_DISTANCE = 0.15
+# INTRUSION_DISTANCE = 0.026998
 
 SPAWN_DISTANCE_MIN = 5
 SPAWN_DISTANCE_MAX = 20
 
-INTRUDER_DISTANCE_MIN = 20
-INTRUDER_DISTANCE_MAX = 50
+# INTRUDER_DISTANCE_MIN = 20
+# INTRUDER_DISTANCE_MAX = 50
 
 D_HEADING = 45 # 45 degrees each way from desired track
-# D_SPEED = 0.5
-D_SPEED = 0.1
+D_SPEED = 0.5
+# D_SPEED = 0.1
 
 AC_SPD = 15
 
@@ -51,7 +56,7 @@ RWY_LAT = 52.36239301495972
 RWY_LON = 4.713195734579777
 
 # Alternative - FAF at a distance
-distance_faf_rwy = 40 # NM, initial assumption 
+distance_faf_rwy = 30 # NM, initial assumption 
 bearing_faf_rwy = 0
 FIX_LAT, FIX_LON = fn.get_point_at_distance(RWY_LAT, RWY_LON, distance_faf_rwy, bearing_faf_rwy)
 
@@ -90,7 +95,8 @@ class AmanEnvM(gym.Env):
                 "cos(track)": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "sin(track)": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "distances": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
-                # "intruder_distance": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,NUM_AC_STATE), dtype=np.float64),
+                # "intruder_distance": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE*NUM_AC_STATE,), dtype=np.float64),
+                # "intruder_bearing": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE*NUM_AC_STATE,), dtype=np.float64)
                 # "cos_difference_pos": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,NUM_AC_STATE), dtype=np.float64),
                 # "sin_difference_pos": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,NUM_AC_STATE), dtype=np.float64)
             }
@@ -169,7 +175,7 @@ class AmanEnvM(gym.Env):
         for i in range(NUM_AC):
             # randomise position here
             bearing_to_pos = random.uniform(-D_HEADING, D_HEADING) # heading radial towards FAF
-            distance_to_pos = random.uniform(INTRUDER_DISTANCE_MIN,INTRUDER_DISTANCE_MAX) # distance to faf 
+            distance_to_pos = random.uniform(SPAWN_DISTANCE_MIN,SPAWN_DISTANCE_MAX) # distance to faf 
             # distance_to_pos = 50
             lat_ac, lon_ac = fn.get_point_at_distance(self.wpt_lat, self.wpt_lon, distance_to_pos, bearing_to_pos)
             # create aircraft
@@ -192,9 +198,10 @@ class AmanEnvM(gym.Env):
         self.cos_track = np.array([])
         self.sin_track = np.array([])
         self.distances = np.array([])
-        # self.intruder_distance = np.array([])
+        self.intruder_distance = np.array([])
         # self.cos_difference_pos = np.array([])
         # self.sin_difference_pos = np.array([])
+        self.intruder_bearing = np.array([])
 
         # Drift of aircraft for reward calculation
         drift = np.zeros(NUM_AC)
@@ -245,8 +252,11 @@ class AmanEnvM(gym.Env):
             self.distances = np.append(self.distances, distances[ac_idx])
 
             # now redo all for relative to other AC
-            # dist_int, brg_int = bs.tools.geo.kwikqdrdist(bs.traf.lat, bs.traf.lon, bs.traf.lat[ac_idx],bs.traf.lon[ac_idx])
-            # self.intruder_distance = np.append(self.intruder_distance,dist_int)
+            dist_int, brg_int = bs.tools.geo.kwikqdrdist(bs.traf.lat, bs.traf.lon, bs.traf.lat[ac_idx],bs.traf.lon[ac_idx])
+            self.intruder_distance = np.append(self.intruder_distance,dist_int)
+            self.intruder_bearing = np.append(self.intruder_bearing,brg_int)
+            # sin_bearing = np.sin(brg_int)
+            # TODO: add the sin and cos bearing since that might help....
 
         observation = {
             "cos(drift)": np.array(self.cos_drift[:NUM_AC_STATE]),
@@ -261,7 +271,8 @@ class AmanEnvM(gym.Env):
             "cos(track)": np.array(self.cos_track[:NUM_AC_STATE]),
             "sin(track)": np.array(self.sin_track[:NUM_AC_STATE]),
             "distances": np.array(self.distances[:NUM_AC_STATE]/250),
-            # "intruder_distance": np.array(self.intruder_distance)/5,
+            # "intruder_distance": np.array(self.intruder_distance/250),
+            # "intruder_bearing": np.array(self.intruder_bearing),
             # "cos_difference_pos": np.array(self.cos_bearing),
             # "sin_difference_pos": np.array(self.sin_bearing)
         }
@@ -408,10 +419,11 @@ class AmanEnvM(gym.Env):
 
             # print(speed_new)
             # if self.faf_reached[i]==0:
-            bs.stack.stack(f"HDG EXP`{i} {heading_new}")
-            bs.stack.stack(f"SPD EXP`{i} {speed_new}")
+            bs.stack.stack(f"HDG EXP{i} {heading_new}")
+            bs.stack.stack(f"SPD EXP{i} {speed_new}")
             # else:
             #     bs.stack.stack(f"EXP{i} addwpt {RWY_LAT} {RWY_LON}")
+
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
