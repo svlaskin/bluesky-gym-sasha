@@ -1,5 +1,5 @@
 # BlueSky-Gym
-A gymnasium style environment for standardized Reinforcement Learning research in Air Traffic Management developed in Python.
+A gymnasium style library for standardized Reinforcement Learning research in Air Traffic Management developed in Python.
 Build on [BlueSky](https://github.com/TUDelft-CNS-ATM/bluesky) and The Farama Foundation's [Gymnasium](https://github.com/Farama-Foundation/Gymnasium)
 
 <p align="center">
