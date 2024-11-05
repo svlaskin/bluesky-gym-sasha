@@ -1,51 +1,61 @@
-# bluesky-gym
-A gymnasium style environment for standardized Reinforcement Learning research in Air Traffic Management.
-Build on the BlueSky Air Traffic Simulator 
+# BlueSky-Gym
+A gymnasium style environment for standardized Reinforcement Learning research in Air Traffic Management developed in Python.
+Build on [BlueSky](https://github.com/TUDelft-CNS-ATM/bluesky) and The Farama Foundation's [Gymnasium](https://github.com/Farama-Foundation/Gymnasium)
 
-## The environments
+<p align="center">
+    <img src="https://github.com/user-attachments/assets/6ae83579-78af-4cb7-8096-3a10af54a5c5" width=30% height=30%><br/>
+    <em>An example trained agent attempting the merge environment available in BlueSky-Gym.</em>
+</p>
 
-### Altitude Control
+For a complete list of the currently available environments click [here](bluesky_gym/envs/README.md)
 
-```python
-env = gymnasium.make("DescentEnv-v0")
-```
+## Installation
 
-In this environment, the agent controls the altitude of the aircraft through vertical velocity commands. The goal of the agent is to stay at a randomly generated target altitude for as long as possible, before initiating the descend towards the runway. 
+`pip install bluesky_gym`
 
-Deviating from the target altitude, or being too high when the runway has approached is penalized. Additionally landing too early, e.g. crashing, is also penalized.
-
-Fairly untrained policy operating in DescentEnv-v0. |Trained policy operating in DescentEnv-v0.
-:--------------------------------------------------:|:--------------------------------------------------:
-![](docs/media/DescentEnv-v0/untrained_policy.gif)                |![](docs/media/DescentEnv-v0/trained_policy.gif)   
-
-### Horizontal Control - Real Time Waypoint Planning
+## Usage
+Using the environments follows the standard API from Gymnasium, an example of which is given below:
 
 ```python
-env = gymnasium.make("PlanWaypointEnv-v0")
+import gymnasium as gym
+import bluesky_gym
+bluesky_gym.register_envs()
+
+env = gym.make('MergeEnv-v0', render_mode='human')
+
+obs, info = env.reset()
+done = truncated = False
+while not (done or truncated):
+    action = ... # Your agent code here
+    obs, reward, done, truncated, info = env.step(action)
 ```
 
-In this environment, the agent controls the heading of the aircraft. The goal of the agent is to visit as many waypoints as possible, by efficiently planning a path through all unvisited waypoints. 
-
-For each unique waypoint visited, the agent is rewarded. After visiting a waypoint it becomes inactive, no longer giving rewards for visiting.
-
-Fairly untrained policy operating in PlanWaypointEnv-v0. | Slightly better trained policy operating in PlanWaypointEnv-v0.
-:--------------------------------------------------:|:--------------------------------------------------:
-![](docs/media/PlanWaypointEnv-v0/untrained_policy.gif)                |![](docs/media/PlanWaypointEnv-v0/trained_policy.gif)   
-
-### Horizontal Control - Waypoint Conflict Resolution
+Additionally you can directly use algorithms from standardized libraries such as [Stable-Baselines3](https://stable-baselines3.readthedocs.io/en/master/) or [RLlib](https://docs.ray.io/en/latest/rllib/index.html) to train a model:
 
 ```python
-env = gymnasium.make("HorizontalCREnv-v0")
+import gymnasium as gym
+import bluesky_gym
+from stable_baselines3 import DDPG
+bluesky_gym.register_envs()
+
+env = gym.make('MergeEnv-v0', render_mode=None)
+model = DDPG("MultiInputPolicy",env)
+model.learn(total_timesteps=2e6)
+model.save()
 ```
 
-In this environment, the agent controls the heading of the aircraft. The goal of the agent is to fly the shortest path to the waypoint, while avoiding intrusions with the other aircraft in the airspace.
 
-All aircraft in the airspace are initialized on a conflicting trajectory, therefore, if no action is taken the agent will intrude with all other aircraft.
+## Citing
 
-Fairly untrained policy operating in PlanWaypointEnv-v0. | Slightly better trained policy operating in PlanWaypointEnv-v0.
-:--------------------------------------------------:|:--------------------------------------------------:
-<img src="docs/media/HorizontalCREnv-v0/untrained_policy.gif" width=85% height=85%>             |<img src="docs/media/HorizontalCREnv-v0/trained_policy.gif" width=78% height=78%> 
+If you use BlueSky-Gym in your work, please cite it using:
+```bibtex
+@misc{bluesky-gym,
+  author = {Groot, DJ and Leto, G and Vlaskin, A and Moec, A and Ellerbroek, J},
+  title = {BlueSky-Gym: Reinforcement Learning Environments for Air Traffic Applications},
+  year = {2024},
+  journal = {SESAR Innovation Days 2024},
+}
+```
 
-
-
-
+List of publications & preprints using `BlueSky-Gym` (please open a pull request to add missing entries):
+*   _missing entry_
