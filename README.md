@@ -3,7 +3,7 @@ A gymnasium style library for standardized Reinforcement Learning research in Ai
 Build on [BlueSky](https://github.com/TUDelft-CNS-ATM/bluesky) and The Farama Foundation's [Gymnasium](https://github.com/Farama-Foundation/Gymnasium)
 
 <p align="center">
-    <img src="https://github.com/user-attachments/assets/6ae83579-78af-4cb7-8096-3a10af54a5c5" width=30% height=30%><br/>
+    <img src="https://github.com/user-attachments/assets/6ae83579-78af-4cb7-8096-3a10af54a5c5" width=50% height=50%><br/>
     <em>An example trained agent attempting the merge environment available in BlueSky-Gym.</em>
 </p>
 
