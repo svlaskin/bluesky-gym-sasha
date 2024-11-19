@@ -11,7 +11,9 @@ For a complete list of the currently available environments click [here](bluesky
 
 ## Installation
 
-`pip install bluesky_gym`
+`pip install bluesky-gym`
+
+Note that the pip package is `bluesky-gym`, for usage however, import as `bluesky_gym`.
 
 ## Usage
 Using the environments follows the standard API from Gymnasium, an example of which is given below:
