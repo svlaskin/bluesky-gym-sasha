@@ -53,7 +53,7 @@ if __name__ == "__main__":
             vec_env_cls=SubprocVecEnv)
     model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
     if TRAIN:
-        model.learn(total_timesteps=2e5, callback=csv_logger_callback)
+        model.learn(total_timesteps=2e6, callback=csv_logger_callback)
         model.save(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp")
         del model
     env.close()
