@@ -37,20 +37,20 @@ name5 = 'average_hdginput'
 # plt.plot(test['timesteps'][:-(ave_window-1)],moving_average(test[name],ave_window),label='test')
 
 # ----------- pure reward --------------------------------------------------------------------------
-# plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name],ave_window),label='reward_sac')
+plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name],ave_window),label='reward_sac')
 # plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name],ave_window),label='reward_ppo')
 # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name],ave_window),label='reward_td3')
-
+# plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name],ave_window),label='reward_ddpg')
 # ----------- pure intrusions --------------------------------------------------------------------------
 # plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name2],ave_window),label='int_sac')
 # plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name2],ave_window),label='int_ppo')
 # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name2],ave_window),label='int_td3')
-
+# plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name2],ave_window),label='int_ddpg')
 # ----------- pure drift --------------------------------------------------------------------------
-plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name3],ave_window),label='drift_sac')
-plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name3],ave_window),label='drift_ppo')
-plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name3],ave_window),label='drift_td3')
-plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(ddpg[name3],ave_window),label='drift_ddpg')
+# plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name3],ave_window),label='drift_sac')
+# plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name3],ave_window),label='drift_ppo')
+# plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name3],ave_window),label='drift_td3')
+# plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name3],ave_window),label='drift_ddpg')
 
 # plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name2],ave_window),label='intrusions')
 # plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name3],ave_window),label='drift')
