@@ -18,7 +18,7 @@ from bluesky_gym.utils import logger
 
 bluesky_gym.register_envs()
 
-env_name = 'AMANEnvM-v0'
+env_name = 'CentralisedMergeEnv-v0'
 algorithm = DDPG
 
 # Initialize logger

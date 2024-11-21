@@ -22,8 +22,8 @@ def register_envs():
     )
 
     register(
-        id="AMANEnvM-v0",
-        entry_point="bluesky_gym.envs.aman_env_multi:AmanEnvM",
+        id="CentralisedMergeEnv-v0",
+        entry_point="bluesky_gym.envs.centralised_merge_env:AmanEnvM",
         max_episode_steps=35,
     )
 

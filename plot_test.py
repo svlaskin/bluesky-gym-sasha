@@ -10,7 +10,7 @@ def time_steps_per_episode(df):
     time_steps = df['timesteps'] - temp[:-1]
     return time_steps
 
-env = "AMANEnvM-v0"
+env = "CentralisedMergeEnv-v0"
 ave_window = 500
 
 # drift01 = pd.read_csv(f'logs/{env}/drift01.csv')
