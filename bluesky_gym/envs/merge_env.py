@@ -198,6 +198,8 @@ class MergeEnv(gym.Env):
         for i in range(NUM_AC-1):
             ac_idx = ac_idx_by_dist[i]+1
             int_hdg = bs.traf.hdg[ac_idx]
+            vx = np.cos(np.deg2rad(ac_hdg)) * bs.traf.tas[ac_idx]
+            vy = np.sin(np.deg2rad(ac_hdg)) * bs.traf.tas[ac_idx]
             
             # Intruder AC relative position, m
             dist, brg = bs.tools.geo.kwikqdrdist(bs.traf.lat[0], bs.traf.lon[0], bs.traf.lat[ac_idx],bs.traf.lon[ac_idx]) 

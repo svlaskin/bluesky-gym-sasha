@@ -22,9 +22,9 @@ def register_envs():
     )
 
     register(
-        id="VerticalCREnv-v0",
-        entry_point="bluesky_gym.envs.vertical_cr_env:VerticalCREnv",
-        max_episode_steps=300,
+        id="AMANEnvM-v0",
+        entry_point="bluesky_gym.envs.aman_env_multi:AmanEnvM",
+        max_episode_steps=35,
     )
 
     register(

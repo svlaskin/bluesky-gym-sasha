@@ -1,25 +1,14 @@
 import numpy as np
-from typing import List
-
-def bound_angle_positive_negative_180(angle_deg: float) -> float:
-    """ maps any angle in degrees to the [-180,180] interval 
-    Parameters
-    __________
-    angle_deg: float
-        angle that needs to be mapped (in degrees)
+def bound_angle_positive_negative_180(angles_deg: np.ndarray) -> np.ndarray:
     
-    Returns
-    __________
-    angle_deg: float
-        input angle mapped to the interval [-180,180] (in degrees)
-    """
-
-    if angle_deg > 180:
-        return -(360 - angle_deg)
-    elif angle_deg < -180:
-        return (360 + angle_deg)
-    else:
-        return angle_deg
+    # Convert input to a numpy array if it isn't already
+    angles_deg = np.asarray(angles_deg)
+    
+    # Apply the mapping using numpy's vectorized operations
+    mapped_angles = np.where(angles_deg > 180, -(360 - angles_deg), angles_deg)
+    mapped_angles = np.where(mapped_angles < -180, 360 + mapped_angles, mapped_angles)
+    
+    return mapped_angles
 
 def get_point_at_distance(lat1, lon1, d, bearing, R=6371):
     """
