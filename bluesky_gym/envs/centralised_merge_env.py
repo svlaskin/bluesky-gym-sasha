@@ -64,7 +64,7 @@ FIX_LAT, FIX_LON = fn.get_point_at_distance(RWY_LAT, RWY_LON, distance_faf_rwy, 
 ACLAT_INIT = 52.97843850741256
 ACLON_INIT = 4.511017581418151
 
-class AmanEnvM(gym.Env):
+class CentralisedMergeEnv(gym.Env):
     """ 
     Single-agent arrival manager environment - only one aircraft (ownship) is merged into NPC stream of aircraft.
     """

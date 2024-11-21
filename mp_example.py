@@ -20,7 +20,7 @@ from bluesky_gym.utils import logger
 
 bluesky_gym.register_envs()
 
-env_name = 'SectorCREnv-v0'
+env_name = 'CentralisedMergeEnv-v0'
 algorithm = SAC
 num_cpu = 2
 
