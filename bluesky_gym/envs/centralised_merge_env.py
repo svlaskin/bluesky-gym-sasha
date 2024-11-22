@@ -43,8 +43,8 @@ MpS2Kt = 1.94384
 
 ACTION_FREQUENCY = 10
 
-NUM_AC = 5
-NUM_AC_STATE = 5
+NUM_AC = 10
+NUM_AC_STATE = 10
 NUM_WAYPOINTS = 1
 
 # Final approach fix, north of EHAM in Heiloo

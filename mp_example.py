@@ -22,7 +22,7 @@ bluesky_gym.register_envs()
 
 env_name = 'CentralisedMergeEnv-v0'
 algorithm = SAC
-num_cpu = 2
+num_cpu = 10
 
 # Initialize logger
 log_dir = f'./logs/{env_name}/'

@@ -19,9 +19,9 @@ ave_window = 500
 # cont = pd.read_csv(f'logs/{env}/continue.csv')
 # test = pd.read_csv(f'logs/{env}/test.csv')
 sac = pd.read_csv(f'logs/{env}/{env}_SAC.csv')
-ppo = pd.read_csv(f'logs/{env}/{env}_PPO.csv')
-td3 = pd.read_csv(f'logs/{env}/{env}_TD3.csv')
-ddpg = pd.read_csv(f'logs/{env}/{env}_DDPG.csv')
+# ppo = pd.read_csv(f'logs/{env}/{env}_PPO.csv')
+# td3 = pd.read_csv(f'logs/{env}/{env}_TD3.csv')
+# ddpg = pd.read_csv(f'logs/{env}/{env}_DDPG.csv')
 # sac2 = pd.read_csv(f'logs/{env}/{env}_SAC_2.csv')
 
 name = 'total_reward'
