@@ -18,11 +18,21 @@ ave_window = 500
 # drift001int10 = pd.read_csv(f'logs/{env}/drift001int10.csv')
 # cont = pd.read_csv(f'logs/{env}/continue.csv')
 # test = pd.read_csv(f'logs/{env}/test.csv')
+
+# latest logs
 sac = pd.read_csv(f'logs/{env}/{env}_SAC.csv')
 # ppo = pd.read_csv(f'logs/{env}/{env}_PPO.csv')
 # td3 = pd.read_csv(f'logs/{env}/{env}_TD3.csv')
 # ddpg = pd.read_csv(f'logs/{env}/{env}_DDPG.csv')
-# sac2 = pd.read_csv(f'logs/{env}/{env}_SAC_2.csv')
+
+
+# specifc dir, specify
+# dir_add = "logs_backup"
+# sac = pd.read_csv(f'{dir_add}/{env}/{env}_SAC.csv')
+# ppo = pd.read_csv(f'{dir_add}/{env}/{env}_PPO.csv')
+# td3 = pd.read_csv(f'{dir_add}/{env}/{env}_TD3.csv')
+# ddpg = pd.read_csv(f'{dir_add}/{env}/{env}_DDPG.csv')
+
 
 name = 'total_reward'
 name2 = 'total_intrusions'

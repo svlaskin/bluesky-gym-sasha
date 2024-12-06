@@ -23,7 +23,7 @@ VDELT_PENALTY = -0.05
 
 # NUM_WAYPOINTS = 1
 # INTRUSION_DISTANCE = 0.4 # NM
-INTRUSION_DISTANCE = 0.15 # TODO: M2 numbers
+INTRUSION_DISTANCE = 0.15
 # INTRUSION_DISTANCE = 0.026998
 
 SPAWN_DISTANCE_MIN = 5
@@ -43,13 +43,9 @@ MpS2Kt = 1.94384
 
 ACTION_FREQUENCY = 10
 
-NUM_AC = 10
-NUM_AC_STATE = 10
+NUM_AC = 15 # number per scenario 
+NUM_AC_STATE = 5 # number in state vector
 NUM_WAYPOINTS = 1
-
-# Final approach fix, north of EHAM in Heiloo
-# FIX_LAT = 52.59382191779792 # change to FAF
-# FIX_LON = 4.722605450577005
 
 # end of polderbaan EHAM
 RWY_LAT = 52.36239301495972
@@ -87,7 +83,7 @@ class CentralisedMergeEnv(gym.Env):
                 "sin(drift)": spaces.Box(-1, 1, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "airspeed": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "waypoint_dist": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
-                "faf_reached": spaces.Box(0, 1, shape=(NUM_AC_STATE,), dtype=np.float64),
+                "faf_reached": spaces.Box(0, 1, shape=(NUM_AC,), dtype=np.float64),
                 "x_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "y_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "vx_r": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
@@ -133,6 +129,9 @@ class CentralisedMergeEnv(gym.Env):
         self.wpt_lon = FIX_LON
         self.rwy_lat = RWY_LAT
         self.rwy_lon = RWY_LON
+
+        self.ac_indices = np.arange(NUM_AC) # aircraft indices
+        self.obs_indices = np.arange(NUM_AC_STATE) # first 5 in state chosen as default sequence, this is changed later
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -223,11 +222,11 @@ class CentralisedMergeEnv(gym.Env):
 
         self.waypoint_dist = wpt_dist
         
-        # pre-loop: look at nearest aircraft to the FAF
+        # pre-loop: look at nearest aircraft to the FAF and generate the obs_indices (ind of controlled AC)
         distances = self.waypoint_dist
-        # self.ac_idx_by_dist = np.argsort(distances) # TODO: make use of this properly. for now out
-        self.ac_idx_by_dist = np.arange(NUM_AC)
-
+        self.ac_idx_by_dist = self.ac_indices[np.argsort(distances)]
+        
+        # loop through total aircraft matrix
         for i in range(NUM_AC):
             ac_idx = self.ac_idx_by_dist[i] # sorted by distance to the FAF
             hdg = bs.traf.hdg[ac_idx]
@@ -259,18 +258,18 @@ class CentralisedMergeEnv(gym.Env):
             # TODO: add the sin and cos bearing since that might help....
 
         observation = {
-            "cos(drift)": np.array(self.cos_drift[:NUM_AC_STATE]),
-            "sin(drift)": np.array(self.sin_drift)[:NUM_AC_STATE],
-            "airspeed": np.array(self.airspeed)[:NUM_AC_STATE],
-            "waypoint_dist": np.array(self.waypoint_dist[:NUM_AC_STATE]/250),
+            "cos(drift)": np.array(self.cos_drift[self.obs_indices]),
+            "sin(drift)": np.array(self.sin_drift)[self.obs_indices],
+            "airspeed": np.array(self.airspeed)[self.obs_indices],
+            "waypoint_dist": np.array(self.waypoint_dist[self.obs_indices]/250),
             "faf_reached": np.array(self.wpt_reach),
-            "x_r": np.array(self.x_r[:NUM_AC_STATE]/1000000),
-            "y_r": np.array(self.y_r[:NUM_AC_STATE]/1000000),
-            "vx_r": np.array(self.vx_r[:NUM_AC_STATE]/150),
-            "vy_r": np.array(self.vy_r[:NUM_AC_STATE]/150),
-            "cos(track)": np.array(self.cos_track[:NUM_AC_STATE]),
-            "sin(track)": np.array(self.sin_track[:NUM_AC_STATE]),
-            "distances": np.array(self.distances[:NUM_AC_STATE]/250),
+            "x_r": np.array(self.x_r[self.obs_indices]/1000000),
+            "y_r": np.array(self.y_r[self.obs_indices]/1000000),
+            "vx_r": np.array(self.vx_r[self.obs_indices]/150),
+            "vy_r": np.array(self.vy_r[self.obs_indices]/150),
+            "cos(track)": np.array(self.cos_track[self.obs_indices]),
+            "sin(track)": np.array(self.sin_track[self.obs_indices]),
+            "distances": np.array(self.distances[self.obs_indices]/250),
             # "intruder_distance": np.array(self.intruder_distance/250),
             # "intruder_bearing": np.array(self.intruder_bearing),
             # "cos_difference_pos": np.array(self.cos_bearing),
@@ -378,19 +377,6 @@ class CentralisedMergeEnv(gym.Env):
     def _check_postfaf(self):
         pair_indices = self.pair_indices
         reward = 0
-    #     # for pair in pair_indices:
-    #     #     ind1 = pair[0]
-    #     #     ind2 = pair[1]
-    #     #     # if faf reached, velocity diff should be ZERO
-    #     #     if self.faf_reached[ind1]==1 and self.faf_reached[ind2]==1:
-    #     #         vdelt_x = abs(self.vx_r[ind1]-self.vx_r[ind2])
-    #     #         vdelt_y = abs(self.vy_r[ind1]-self.vy_r[ind2])
-    #     #         vdelt = np.sqrt(vdelt_x**2+vdelt_y**2)
-    #     #         reward += VDELT_PENALTY*vdelt
-    #     #     else:
-    #     #         reward = 0
-
-        # rather, try to get the reward in terms of the component in the leader's velocity, namely:
         for pair in pair_indices:
             ind1 = pair[0]
             ind2 = pair[1]
@@ -404,7 +390,7 @@ class CentralisedMergeEnv(gym.Env):
 
     # TODO: vectorise for multiple AC
     def _get_action(self,action):
-        for i in range(NUM_AC):
+        for i in range(NUM_AC_STATE): # TODO: change to controled
             action_index = 2*i # map action to flattened action vector.
             # if not self.wpt_reach:
             dh = action[action_index] * D_HEADING
@@ -522,8 +508,10 @@ class CentralisedMergeEnv(gym.Env):
             else: 
                 color = (80,80,80)
 
-            if self.wpt_reach[i]:
+            # if self.wpt_reach[i]:
+            if np.isin(i,self.obs_indices):
                 color = (0,255,0)
+    
             # if i==0:
             #     color = (252, 43, 28)
 
