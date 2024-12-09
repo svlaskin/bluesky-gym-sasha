@@ -6,6 +6,7 @@ import bluesky
 import bluesky as bs
 from bluesky_gym.envs.common.screen_dummy import ScreenDummy
 import bluesky_gym.envs.common.functions as fn
+from sklearn import cluster
 
 import gymnasium as gym
 from gymnasium import spaces
@@ -43,7 +44,7 @@ MpS2Kt = 1.94384
 
 ACTION_FREQUENCY = 10
 
-NUM_AC = 15 # number per scenario 
+NUM_AC = 20 # number per scenario 
 NUM_AC_STATE = 5 # number in state vector
 NUM_WAYPOINTS = 1
 
@@ -132,7 +133,7 @@ class CentralisedMergeEnv(gym.Env):
 
         self.ac_indices = np.arange(NUM_AC) # aircraft indices
         self.obs_indices = np.arange(NUM_AC_STATE) # first 5 in state chosen as default sequence, this is changed later
-
+        self.last_reach_status  = np.zeros_like(self.ac_indices)
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.wpt_reach = np.zeros(NUM_AC)
@@ -222,10 +223,16 @@ class CentralisedMergeEnv(gym.Env):
 
         self.waypoint_dist = wpt_dist
         
-        # pre-loop: look at nearest aircraft to the FAF and generate the obs_indices (ind of controlled AC)
+        # pre-loop: look at nearest aircraft to the FAF and generate the obs_rlindices (ind of controlled AC)
         distances = self.waypoint_dist
+        distances = self.faf_reached*999 + distances # quick  and dirty way to sort the ones that are past FAF out
         self.ac_idx_by_dist = self.ac_indices[np.argsort(distances)]
         
+        if (self.last_reach_status != self.ac_idx_by_dist).all(): # if the reached aircraft array has changes since last time
+            self.obs_indices = self.ac_idx_by_dist[:NUM_AC_STATE] # then update the indices of AC to control 
+        
+        self.last_reach_status = self.faf_reached # store last reach status!
+
         # loop through total aircraft matrix
         for i in range(NUM_AC):
             ac_idx = self.ac_idx_by_dist[i] # sorted by distance to the FAF

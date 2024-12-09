@@ -8,6 +8,7 @@ TODO:
 
 import gymnasium as gym
 from stable_baselines3 import PPO, SAC, TD3, DDPG
+from stable_baselines3.common.callbacks import CallbackList, BaseCallback
 
 import numpy as np
 
@@ -28,13 +29,30 @@ csv_logger_callback = logger.CSVLoggerCallback(log_dir, file_name)
 
 TRAIN = True
 EVAL_EPISODES = 10
+class SaveModelCallback(BaseCallback):
+    def __init__(self, save_freq: int, save_path: str, verbose: int = 0):
+        super(SaveModelCallback, self).__init__(verbose)
+        self.save_freq = save_freq
+        self.save_path = save_path
+
+    def _on_step(self) -> bool:
+        # Check if the training step is a multiple of the save frequency
+        if self.n_calls % self.save_freq == 0:
+            # Save the model
+            model_path = f"{self.save_path}/{env_name}_{str(algorithm.__name__)}model_{self.n_calls}.zip"
+            self.model.save(model_path)
+            if self.verbose > 0:
+                print(f"Model saved at step {self.n_calls} to {model_path}")
+        return True
+    
 
 if __name__ == "__main__":
     env = gym.make(env_name, render_mode=None)
     obs, info = env.reset()
     model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=2*3e-4)
+    save_callback = SaveModelCallback(save_freq=1000, save_path="./saved_models", verbose=1)
     if TRAIN:
-        model.learn(total_timesteps=500000, callback=csv_logger_callback)
+        model.learn(total_timesteps=500000, callback=CallbackList([save_callback,csv_logger_callback]))
         model.save(f"models/{env_name}_{str(algorithm.__name__)}/model")
         del model
     env.close()
