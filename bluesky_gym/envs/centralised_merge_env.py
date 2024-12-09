@@ -397,7 +397,7 @@ class CentralisedMergeEnv(gym.Env):
 
     # TODO: vectorise for multiple AC
     def _get_action(self,action):
-        for i in range(NUM_AC_STATE): # TODO: change to controled
+        for i in self.obs_indices: # TODO: change to controled
             action_index = 2*i # map action to flattened action vector.
             # if not self.wpt_reach:
             dh = action[action_index] * D_HEADING

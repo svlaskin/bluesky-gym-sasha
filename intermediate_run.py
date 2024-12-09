@@ -1,3 +1,6 @@
+"""
+File to quickly run the checkpoint models while 
+"""
 import gymnasium as gym
 from stable_baselines3 import PPO, SAC, TD3, DDPG
 from stable_baselines3.common.env_util import make_vec_env
@@ -21,10 +24,11 @@ file_name = f'{env_name}_{str(algorithm.__name__)}.csv'
 csv_logger_callback = logger.CSVLoggerCallback(log_dir, file_name)
 
 EVAL_EPISODES = 10
+nsteps = 3000
 
 # Quick render
 env = gym.make(env_name, render_mode="human")
-model = algorithm.load(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp", env=env)
+model = algorithm.load(f"saved_models/{env_name}_{str(algorithm.__name__)}model_{nsteps}", env=env)
 for i in range(EVAL_EPISODES):
     done = truncated = False
     obs, info = env.reset()
