@@ -44,8 +44,8 @@ MpS2Kt = 1.94384
 
 ACTION_FREQUENCY = 10
 
-NUM_AC = 20 # number per scenario 
-NUM_AC_STATE = 20 # number in state vector
+NUM_AC = 10 # number per scenario 
+NUM_AC_STATE = 10 # number in state vector
 NUM_WAYPOINTS = 1
 
 # end of polderbaan EHAM
@@ -306,8 +306,12 @@ class CentralisedMergeEnv(gym.Env):
 
         # reward = np.sum(reach_reward)/NUM_AC + np.sum(drift_reward)/NUM_AC + np.sum(intrusion_reward)/NUM_AC + np.sum(postfaf_reward)/NUM_AC
         reward = np.sum(reach_reward) + np.sum(drift_reward) + np.sum(intrusion_reward)
+        # reward = np.sum(intrusion_reward)
 
         self.total_reward += reward
+
+        if np.sum(self.wpt_reach) == len(self.wpt_reach):
+            done = True
 
         return reward, done
 
@@ -415,6 +419,8 @@ class CentralisedMergeEnv(gym.Env):
 
             heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(f'EXP{ind_ac}')] + dh)
             speed_new = (bs.traf.tas[bs.traf.id2idx(f'EXP{ind_ac}')] + dv) * MpS2Kt
+            speed_new = speed_new if speed_new>0 else 0
+            
             # speed_new = 0
             # print(speed_new)
             # if self.faf_reached[i]==0:
