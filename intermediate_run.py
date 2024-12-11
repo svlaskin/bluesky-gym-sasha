@@ -24,7 +24,7 @@ file_name = f'{env_name}_{str(algorithm.__name__)}.csv'
 csv_logger_callback = logger.CSVLoggerCallback(log_dir, file_name)
 
 EVAL_EPISODES = 10
-nsteps = 3000
+nsteps = 90000
 
 # Quick render
 env = gym.make(env_name, render_mode="human")

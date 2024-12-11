@@ -4,6 +4,6 @@
 TODO.txt
 images/
 logs/
-models/
+# models/
 dist/
-saved_models/
+# saved_models/

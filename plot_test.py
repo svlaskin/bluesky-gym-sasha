@@ -62,6 +62,18 @@ plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name],ave_window)
 # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name3],ave_window),label='drift_td3')
 # plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name3],ave_window),label='drift_ddpg')
 
+# ----------- vel input avg --------------------------------------------------------------------------
+# plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name4],ave_window),label='v_in_sac')
+# plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name4],ave_window),label='v_in_ppo')
+# plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name4],ave_window),label='v_in_td3')
+# plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name4],ave_window),label='v_in_ddpg')
+
+# ----------- hdg input avg --------------------------------------------------------------------------
+# plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name5],ave_window),label='hdg_in_sac')
+# plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name5],ave_window),label='hdg_in_ppo')
+# plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name5],ave_window),label='hdg_in_td3')
+# plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name5],ave_window),label='hdg_in_ddpg')
+
 # plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name2],ave_window),label='intrusions')
 # plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name3],ave_window),label='drift')
 

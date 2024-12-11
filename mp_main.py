@@ -36,7 +36,7 @@ class SaveModelCallback(BaseCallback):
         # Check if the training step is a multiple of the save frequency
         if self.n_calls % self.save_freq == 0:
             # Save the model
-            model_path = f"{self.save_path}/model.zip"
+            model_path = f"{self.save_path}/{env_name}_{str(algorithm.__name__)}model_{self.n_calls}.zip"
             self.model.save(model_path)
             if self.verbose > 0:
                 print(f"Model saved at step {self.n_calls} to {model_path}")
@@ -62,6 +62,7 @@ if __name__ == "__main__":
     model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
     if TRAIN:
         model.learn(total_timesteps=2e6, callback = CallbackList([save_callback,csv_logger_callback]))
+        # model.learn(total_timesteps=500000, callback = CallbackList([save_callback,csv_logger_callback]))
         model.save(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp")
         del model
     env.close()

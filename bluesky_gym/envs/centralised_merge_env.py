@@ -27,17 +27,17 @@ VDELT_PENALTY = -0.05
 INTRUSION_DISTANCE = 0.15
 # INTRUSION_DISTANCE = 0.026998
 
-SPAWN_DISTANCE_MIN = 5
-SPAWN_DISTANCE_MAX = 20
+SPAWN_DISTANCE_MIN = 10
+SPAWN_DISTANCE_MAX = 30
 
 # INTRUDER_DISTANCE_MIN = 20
 # INTRUDER_DISTANCE_MAX = 50
 
 D_HEADING = 45 # 45 degrees each way from desired track
-D_SPEED = 0.5
+D_SPEED = 5 # m/s^2, max accelleration 
 # D_SPEED = 0.1
 
-AC_SPD = 15
+AC_SPD = 10
 
 NM2KM = 1.852
 MpS2Kt = 1.94384
@@ -45,7 +45,7 @@ MpS2Kt = 1.94384
 ACTION_FREQUENCY = 10
 
 NUM_AC = 20 # number per scenario 
-NUM_AC_STATE = 5 # number in state vector
+NUM_AC_STATE = 20 # number in state vector
 NUM_WAYPOINTS = 1
 
 # end of polderbaan EHAM
@@ -99,7 +99,8 @@ class CentralisedMergeEnv(gym.Env):
             }
         )
        
-        self.action_space = spaces.Box(-1, 1, shape=(2*NUM_AC_STATE,), dtype=np.float64)
+        self.action_space = spaces.Box(-1, 1, shape=(2*NUM_AC_STATE,), dtype=np.float64) # stacked V and H 
+        # self.action_space = spaces.Box(-1, 1, shape=(NUM_AC_STATE,), dtype=np.float64)
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -182,6 +183,7 @@ class CentralisedMergeEnv(gym.Env):
             bs.traf.cre(f'EXP{i}',actype="m600",acspd=AC_SPD,aclat=lat_ac,aclon=lon_ac,achdg=bearing_to_pos-180,acalt=10000)
             bs.stack.stack(f"EXP{i} addwpt {FIX_LAT} {FIX_LON}")
             bs.stack.stack(f"EXP{i} dest {RWY_LAT} {RWY_LON}")
+            bs.traf.perf.axmax[-1] = 5 # this is for drones.
         bs.stack.stack('reso off')
         return
 
@@ -228,8 +230,8 @@ class CentralisedMergeEnv(gym.Env):
         distances = self.faf_reached*999 + distances # quick  and dirty way to sort the ones that are past FAF out
         self.ac_idx_by_dist = self.ac_indices[np.argsort(distances)]
         
-        if (self.last_reach_status != self.ac_idx_by_dist).all(): # if the reached aircraft array has changes since last time
-            self.obs_indices = self.ac_idx_by_dist[:NUM_AC_STATE] # then update the indices of AC to control 
+        # if (self.last_reach_status != self.ac_idx_by_dist).all(): # if the reached aircraft array has changes since last time
+        self.obs_indices = self.ac_idx_by_dist[:NUM_AC_STATE] # then update the indices of AC to control 
         
         self.last_reach_status = self.faf_reached # store last reach status!
 
@@ -397,23 +399,27 @@ class CentralisedMergeEnv(gym.Env):
 
     # TODO: vectorise for multiple AC
     def _get_action(self,action):
-        for i in self.obs_indices: # TODO: change to controled
-            action_index = 2*i # map action to flattened action vector.
+        for i in range(len(self.obs_indices)): # TODO: change to controled. now is but might be wrong..
+            # action_index = 2*i # map action to flattened action vector. --> this no longer holds.. now this is from the group?
+            action_index = i
             # if not self.wpt_reach:
-            dh = action[action_index] * D_HEADING
+            # dh = action[action_index] * D_HEADING
             # else:
             #     dh = -self.drift
             dv = action[action_index+1] * D_SPEED
+            dh = action[action_index] * D_HEADING
             self.average_v_action.append(dv)
             self.average_hdg_action.append(dh)
 
-            heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(f'EXP{i}')] + dh)
-            speed_new = (bs.traf.tas[bs.traf.id2idx(f'EXP{i}')] + dv) * MpS2Kt
+            ind_ac = self.obs_indices[i] # this is to map the controll-ee to the instantaneous action space (since we change ac)
 
+            heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(f'EXP{ind_ac}')] + dh)
+            speed_new = (bs.traf.tas[bs.traf.id2idx(f'EXP{ind_ac}')] + dv) * MpS2Kt
+            # speed_new = 0
             # print(speed_new)
             # if self.faf_reached[i]==0:
-            bs.stack.stack(f"HDG EXP{i} {heading_new}")
-            bs.stack.stack(f"SPD EXP{i} {speed_new}")
+            bs.stack.stack(f"HDG EXP{ind_ac} {heading_new}")
+            bs.stack.stack(f"SPD EXP{ind_ac} {speed_new}")
             # else:
             #     bs.stack.stack(f"EXP{i} addwpt {RWY_LAT} {RWY_LON}")
 
