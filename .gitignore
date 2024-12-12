@@ -3,7 +3,7 @@
 .vscode
 TODO.txt
 images/
-logs/
+# logs/
 # models/
 dist/
 # saved_models/
