@@ -3,6 +3,8 @@ from gymnasium.spaces import Dict, Box
 import bluesky as bs
 import numpy as np
 
+MAX_WIND = 50 # Crude value used for normalization of the wind values
+
 class WindFieldWrapper(gym.Wrapper):
     def __init__(self, env, lat, lon, vnorth, veast, alt, augment_obs=False):
         super().__init__(env)
@@ -14,12 +16,9 @@ class WindFieldWrapper(gym.Wrapper):
         self.augment_obs = augment_obs
 
         if self.augment_obs:
-             #Ensure the original observation space is a Dict
             assert isinstance(self.observation_space, Dict), "This wrapper only supports Dict observation spaces."
-
-            # Add two new components (e.g., 'wind_u' and 'wind_v') to the observation space
             self.observation_space = Dict({
-                **self.observation_space.spaces,  # Keep the original observation space entries
+                **self.observation_space.spaces,  
                 "wind_u": Box(-np.inf, np.inf, shape=(), dtype=np.float64),
                 "wind_v": Box(-np.inf, np.inf, shape=(), dtype=np.float64),
             })
@@ -52,4 +51,13 @@ class WindFieldWrapper(gym.Wrapper):
         return observation, reward, done, truncated, info
     
     def _get_wind_observation(self):
-        pass
+        acidx = bs.traf.id2idx('kl001')
+        lat, lon, alt = bs.traf.lat[acidx], bs.traf.lon[acidx], bs.traf.alt[acidx]
+        wind_n, wind_e = bs.traf.wind.getdata(lat,lon,alt)
+
+        hdg = np.deg2rad(bs.traf.hdg[acidx])
+
+        wind_u = (wind_n * np.cos(hdg) + wind_e * np.sin(hdg)) / MAX_WIND
+        wind_v = -wind_n * np.sin(hdg) + wind_e * np.cos(hdg) / MAX_WIND
+
+        return wind_u, wind_v 
