@@ -6,7 +6,7 @@ import numpy as np
 MAX_WIND = 50 # Crude value used for normalization of the wind values
 
 class WindFieldWrapper(gym.Wrapper):
-    def __init__(self, env, lat, lon, vnorth, veast, alt, augment_obs=False):
+    def __init__(self, env, lat, lon, vnorth, veast, alt=None, augment_obs=False):
         super().__init__(env)
         self.lat = lat
         self.lon = lon
@@ -19,8 +19,8 @@ class WindFieldWrapper(gym.Wrapper):
             assert isinstance(self.observation_space, Dict), "This wrapper only supports Dict observation spaces."
             self.observation_space = Dict({
                 **self.observation_space.spaces,  
-                "wind_u": Box(-np.inf, np.inf, shape=(), dtype=np.float64),
-                "wind_v": Box(-np.inf, np.inf, shape=(), dtype=np.float64),
+                "wind_u": Box(-np.inf, np.inf, shape=(1,), dtype=np.float64),
+                "wind_v": Box(-np.inf, np.inf, shape=(1,), dtype=np.float64),
             })
 
     def reset(self, **kwargs):
@@ -30,10 +30,12 @@ class WindFieldWrapper(gym.Wrapper):
         if self.augment_obs: 
             wind_u, wind_v = self._get_wind_observation()
             wind = {
-                "wind_u": wind_u,
-                "wind_v": wind_v
+                "wind_u": np.array([wind_u]),
+                "wind_v": np.array([wind_v])
             }
             observation = {**observation, **wind} 
+            # import code
+            # code.interact(local=locals())
 
         return observation, info
     
@@ -43,8 +45,8 @@ class WindFieldWrapper(gym.Wrapper):
         if self.augment_obs: 
             wind_u, wind_v = self._get_wind_observation()
             wind = {
-                "wind_u": wind_u,
-                "wind_v": wind_v
+                "wind_u": np.array([wind_u]),
+                "wind_v": np.array([wind_v])
             }
             observation = {**observation, **wind}
 
@@ -58,6 +60,6 @@ class WindFieldWrapper(gym.Wrapper):
         hdg = np.deg2rad(bs.traf.hdg[acidx])
 
         wind_u = (wind_n * np.cos(hdg) + wind_e * np.sin(hdg)) / MAX_WIND
-        wind_v = -wind_n * np.sin(hdg) + wind_e * np.cos(hdg) / MAX_WIND
+        wind_v = (-wind_n * np.sin(hdg) + wind_e * np.cos(hdg)) / MAX_WIND
 
         return wind_u, wind_v 
