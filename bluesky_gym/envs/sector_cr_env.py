@@ -174,7 +174,7 @@ class SectorCREnv(gym.Env):
         d_list = [np.random.uniform(0, perim_tot) for _ in range(self.num_ac)] # Each ac including agent is given a waypoint
         d_list.sort()
         
-        self.wpts = []
+        self.wpts = [] # In terms of NM
         current_d = 0
         
         for d in d_list:
@@ -256,7 +256,10 @@ class SectorCREnv(gym.Env):
         ac_hdg = bs.traf.hdg[ac_idx]
         
         # Get and decompose agent aircaft drift
-        wpt_qdr, _  = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], self.wpts[0][0], self.wpts[0][1])
+        wpt_qdr, _  = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx],
+                                               bs.traf.lon[ac_idx],
+                                               fn.nm_to_latlong(CENTER, self.wpts[0][0]), 
+                                               fn.nm_to_latlong(CENTER, self.wpts[0][1]))
         drift = ac_hdg - wpt_qdr
         drift = fn.bound_angle_positive_negative_180(drift)
         self.drift = drift
