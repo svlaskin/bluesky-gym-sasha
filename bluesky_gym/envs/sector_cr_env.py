@@ -214,7 +214,7 @@ class SectorCREnv(gym.Env):
             wpt = fn.nm_to_latlong(CENTER, self.wpts[i])
             init_pos = init_p_latlong[i]
             hdg = fn.get_hdg(init_pos, wpt)
-            bs.traf.cre(acid=str(i), actype=AC_TYPE, aclat=init_pos[0], aclon=init_pos[1], achdg=hdg, acspd=AC_SPD)
+            bs.traf.cre(acid=str(i), actype=AC_TYPE, aclat=init_pos[0], aclon=init_pos[1], achdg=hdg, acspd=AC_SPD, acalt=ALTITUDE)
     
     def _get_info(self):
         # Here you implement any additional info that you want to log after an episode
