@@ -14,13 +14,15 @@ bluesky_gym.register_envs()
 env_name = 'CentralisedMergeEnv-v0'
 algorithm = SAC
 num_cpu = 10
+# extra_string = "_large_model_4M"
+extra_string = "_extra"
 
 # Initialize logger
 log_dir = f'./logs/{env_name}/'
-file_name = f'{env_name}_{str(algorithm.__name__)}.csv'
+file_name = f'{env_name}_{str(algorithm.__name__)}{extra_string}.csv'
 csv_logger_callback = logger.CSVLoggerCallback(log_dir, file_name)
 
-TRAIN = True
+TRAIN = False
 EVAL_EPISODES = 10
 
 # Initialise the environment counter
@@ -36,7 +38,7 @@ class SaveModelCallback(BaseCallback):
         # Check if the training step is a multiple of the save frequency
         if self.n_calls % self.save_freq == 0:
             # Save the model
-            model_path = f"{self.save_path}/{env_name}_{str(algorithm.__name__)}model_{self.n_calls}.zip"
+            model_path = f"{self.save_path}/{env_name}_{str(algorithm.__name__)}{self.n_calls}{extra_string}.zip"
             self.model.save(model_path)
             if self.verbose > 0:
                 print(f"Model saved at step {self.n_calls} to {model_path}")
@@ -59,18 +61,22 @@ if __name__ == "__main__":
             n_envs = num_cpu,
             vec_env_cls=SubprocVecEnv)
     save_callback = SaveModelCallback(save_freq=1000, save_path="./saved_models", verbose=1)
-    model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=3e-4)
+    net_arch = dict(pi=[256, 256, 256], qf=[256, 256, 256])  # Separate actor (`pi`) and critic (`vf`) network
+    policy_kwargs = dict(
+        net_arch=net_arch
+    )
+    model = algorithm("MultiInputPolicy", env, policy_kwargs=policy_kwargs, verbose=1,learning_rate=3e-4)
     if TRAIN:
-        model.learn(total_timesteps=2e6, callback = CallbackList([save_callback,csv_logger_callback]))
+        model.learn(total_timesteps=0.1e6, callback = CallbackList([save_callback,csv_logger_callback]))
         # model.learn(total_timesteps=500000, callback = CallbackList([save_callback,csv_logger_callback]))
-        model.save(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp")
+        model.save(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp{extra_string}")
         del model
     env.close()
     del env
     
     # Test the trained model
     env = gym.make(env_name, render_mode="human")
-    model = algorithm.load(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp", env=env)
+    model = algorithm.load(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp{extra_string}", env=env)
     for i in range(EVAL_EPISODES):
         done = truncated = False
         obs, info = env.reset()

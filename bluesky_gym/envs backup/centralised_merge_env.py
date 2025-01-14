@@ -66,7 +66,7 @@ ACLON_INIT = 4.511017581418151
 
 class CentralisedMergeEnv(gym.Env):
     """ 
-    Single-agent arrival manager environment - only one aircraft (ownship) is merged into NPC stream of aircraft.
+    Centralised Merge Environment, single agent controls all merging traffic going to a single Final Approach Fix (FAF)
     """
     metadata = {"render_modes": ["rgb_array","human"], "render_fps": 120}
 
@@ -95,10 +95,12 @@ class CentralisedMergeEnv(gym.Env):
                 "cos(track)": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "sin(track)": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
                 "distances": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,), dtype=np.float64),
-                # "intruder_distance": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE*NUM_AC_STATE,), dtype=np.float64),
-                # "intruder_bearing": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE*NUM_AC_STATE,), dtype=np.float64)
-                # "cos_difference_pos": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,NUM_AC_STATE), dtype=np.float64),
-                # "sin_difference_pos": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE,NUM_AC_STATE), dtype=np.float64)
+                "intruder_distance": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE*NUM_AC_STATE,), dtype=np.float64),
+                "intruder_bearing": spaces.Box(-np.inf, np.inf, shape=(NUM_AC_STATE*NUM_AC_STATE,), dtype=np.float64), 
+                "intruder_dx":
+                "intruder_dy":
+                "intruder_vx":
+                "intruder_vy":
             }
         )
        
@@ -200,9 +202,11 @@ class CentralisedMergeEnv(gym.Env):
         self.sin_track = np.array([])
         self.distances = np.array([])
         self.intruder_distance = np.array([])
-        # self.cos_difference_pos = np.array([])
-        # self.sin_difference_pos = np.array([])
         self.intruder_bearing = np.array([])
+        self.intruder_dx = np.array([])
+        self.intruder_dy = np.array([])
+        self.intruder_vx = np.array([])
+        self.intruder_vy = np.array([])
 
         # Drift of aircraft for reward calculation
         drift = np.zeros(NUM_AC)
@@ -256,8 +260,6 @@ class CentralisedMergeEnv(gym.Env):
             dist_int, brg_int = bs.tools.geo.kwikqdrdist(bs.traf.lat, bs.traf.lon, bs.traf.lat[ac_idx],bs.traf.lon[ac_idx])
             self.intruder_distance = np.append(self.intruder_distance,dist_int)
             self.intruder_bearing = np.append(self.intruder_bearing,brg_int)
-            # sin_bearing = np.sin(brg_int)
-            # TODO: add the sin and cos bearing since that might help....
 
         observation = {
             "cos(drift)": np.array(self.cos_drift[:NUM_AC_STATE]),
@@ -272,10 +274,12 @@ class CentralisedMergeEnv(gym.Env):
             "cos(track)": np.array(self.cos_track[:NUM_AC_STATE]),
             "sin(track)": np.array(self.sin_track[:NUM_AC_STATE]),
             "distances": np.array(self.distances[:NUM_AC_STATE]/250),
-            # "intruder_distance": np.array(self.intruder_distance/250),
-            # "intruder_bearing": np.array(self.intruder_bearing),
-            # "cos_difference_pos": np.array(self.cos_bearing),
-            # "sin_difference_pos": np.array(self.sin_bearing)
+            "intruder_distance": np.array(self.intruder_distance/250),
+            "intruder_bearing": np.array(self.intruder_bearing),
+            "intruder_dx": np.array(self.intruder_dx),
+            "intruder_dy": np.array(self.intruder_dy),
+            "intruder_vx": np.array(self.intruder_vx),
+            "intruder_vy": np.array(self.intruder_vy),
         }
 
         return observation
@@ -356,8 +360,6 @@ class CentralisedMergeEnv(gym.Env):
         self.average_drift.append(np.average(drift))
         return drift * DRIFT_PENALTY
 
-
-    # TODO: vectorise for all AC that are not wpt_reach. THINK THIS NOW WORKS
     def _check_intrusion(self):
         pair_indices = self.pair_indices
         reward = 0
@@ -379,19 +381,7 @@ class CentralisedMergeEnv(gym.Env):
     def _check_postfaf(self):
         pair_indices = self.pair_indices
         reward = 0
-    #     # for pair in pair_indices:
-    #     #     ind1 = pair[0]
-    #     #     ind2 = pair[1]
-    #     #     # if faf reached, velocity diff should be ZERO
-    #     #     if self.faf_reached[ind1]==1 and self.faf_reached[ind2]==1:
-    #     #         vdelt_x = abs(self.vx_r[ind1]-self.vx_r[ind2])
-    #     #         vdelt_y = abs(self.vy_r[ind1]-self.vy_r[ind2])
-    #     #         vdelt = np.sqrt(vdelt_x**2+vdelt_y**2)
-    #     #         reward += VDELT_PENALTY*vdelt
-    #     #     else:
-    #     #         reward = 0
-
-        # rather, try to get the reward in terms of the component in the leader's velocity, namely:
+        # get the reward in terms of the component in the leader's velocity, namely:
         for pair in pair_indices:
             ind1 = pair[0]
             ind2 = pair[1]
@@ -402,8 +392,7 @@ class CentralisedMergeEnv(gym.Env):
                 reward += VDELT_PENALTY*(np.sqrt((vec12-vec2)**2)) # projected relative velocity should be zero for ideal merge
         
         return reward    
-
-    # TODO: vectorise for multiple AC
+    
     def _get_action(self,action):
         for i in range(NUM_AC):
             action_index = 2*i # map action to flattened action vector.

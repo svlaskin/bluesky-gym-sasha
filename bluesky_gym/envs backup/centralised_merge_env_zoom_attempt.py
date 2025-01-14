@@ -231,6 +231,8 @@ class CentralisedMergeEnv(gym.Env):
         # self.cos_difference_pos = np.array([])
         # self.sin_difference_pos = np.array([])
         self.intruder_bearing = np.array([])
+        self.vx_r = np.array([])
+        self.vy_r = np.array([])
 
         # Drift of aircraft for reward calculation
         drift = np.zeros(NUM_AC)
@@ -283,9 +285,7 @@ class CentralisedMergeEnv(gym.Env):
             # now redo all for relative to other AC
             dist_int, brg_int = bs.tools.geo.kwikqdrdist(bs.traf.lat, bs.traf.lon, bs.traf.lat[ac_idx],bs.traf.lon[ac_idx])
             self.intruder_distance = np.append(self.intruder_distance,dist_int)
-            self.intruder_bearing = np.append(self.intruder_bearing,brg_int)
-            # sin_bearing = np.sin(brg_int)
-            # TODO: add the sin and cos bearing since that might help....
+            # self.intruder_bearing = np.append(self.intruder_bearing,brg_int)
 
         observation = {
             "cos(drift)": np.array(self.cos_drift[:NUM_AC_STATE]),
@@ -300,10 +300,10 @@ class CentralisedMergeEnv(gym.Env):
             "cos(track)": np.array(self.cos_track[:NUM_AC_STATE]),
             "sin(track)": np.array(self.sin_track[:NUM_AC_STATE]),
             "distances": np.array(self.distances[:NUM_AC_STATE]/250),
-            # "intruder_distance": np.array(self.intruder_distance/250),
+            "intruder_distance": np.array(self.intruder_distance/250),
+            # "vx_r":,
+            # "vy_r":,
             # "intruder_bearing": np.array(self.intruder_bearing),
-            # "cos_difference_pos": np.array(self.cos_bearing),
-            # "sin_difference_pos": np.array(self.sin_bearing)
         }
 
         return observation
