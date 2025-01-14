@@ -256,10 +256,9 @@ class SectorCREnv(gym.Env):
         ac_hdg = bs.traf.hdg[ac_idx]
         
         # Get and decompose agent aircaft drift
-        wpt_qdr, _  = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx],
-                                               bs.traf.lon[ac_idx],
-                                               fn.nm_to_latlong(CENTER, self.wpts[0][0]), 
-                                               fn.nm_to_latlong(CENTER, self.wpts[0][1]))
+        wpts = fn.nm_to_latlong(CENTER, self.wpts[ac_idx])
+        wpt_qdr, _  = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], wpts[0], wpts[1])
+        
         drift = ac_hdg - wpt_qdr
         drift = fn.bound_angle_positive_negative_180(drift)
         self.drift = drift
@@ -322,6 +321,11 @@ class SectorCREnv(gym.Env):
         # print(speed_new)
         bs.stack.stack(f"HDG {ACTOR} {heading_new}")
         bs.stack.stack(f"SPD {ACTOR} {speed_new}")
+
+        traf = bs.traf
+
+        import code
+        code.interact(local=locals())
 
     def _check_drift(self):
         drift = abs(np.deg2rad(self.drift))
