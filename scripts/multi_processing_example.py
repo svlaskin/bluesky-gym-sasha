@@ -9,7 +9,7 @@ Selecting different environments is done through setting the 'env_name' variable
 """
 
 import gymnasium as gym
-from stable_baselines3 import PPO, SAC, TD3, DDPG
+from stable_baselines3 import SAC
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
@@ -67,8 +67,6 @@ if __name__ == "__main__":
         obs, info = env.reset()
         tot_rew = 0
         while not (done or truncated):
-            # action = np.array(np.random.randint(-100,100,size=(2))/100)
-            # action = np.array([0,-1])
             action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, truncated, info = env.step(action[()])
             tot_rew += reward
