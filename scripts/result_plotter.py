@@ -1,3 +1,7 @@
+"""
+File used for generating the figures used in the original BlueSky-Gym publication, requires the log-files from the experiments.
+"""
+
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
@@ -28,7 +32,7 @@ for i, ax in enumerate(axs.flatten()[:-1]):
     ax.set_xticks([0,1e6,2e6])
     ax.set_xticklabels(['0','1e6','2e6'])
     for model in models:
-        y_data = pd.read_csv(f'logs_backup/{env}/{env}_{model}.csv')
+        y_data = pd.read_csv(f'common/results/logs_backup/{env}/{env}_{model}.csv')
         sns.lineplot(x=y_data['timesteps'][:-(ave_window-1)],y=moving_average((y_data)[feature],ave_window), legend=False ,ax=ax,label=model)
         
     ax.set_title(f'{env}',fontsize = 18)
