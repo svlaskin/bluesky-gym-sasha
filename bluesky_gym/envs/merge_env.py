@@ -200,7 +200,7 @@ class MergeEnv(gym.Env):
             int_hdg = bs.traf.hdg[ac_idx]
             
             # Intruder AC relative position, m
-            dist, brg = bs.tools.geo.kwikqdrdist(bs.traf.lat[0], bs.traf.lon[0], bs.traf.lat[ac_idx],bs.traf.lon[ac_idx]) 
+            brg, dist = bs.tools.geo.kwikqdrdist(bs.traf.lat[0], bs.traf.lon[0], bs.traf.lat[ac_idx],bs.traf.lon[ac_idx]) 
             self.x_r = np.append(self.x_r, (dist * NM2KM * 1000) * np.cos(np.deg2rad(brg)))
             self.y_r = np.append(self.y_r, (dist * NM2KM * 1000) * np.sin(np.deg2rad(brg)))
             
