@@ -2,7 +2,6 @@
 name = "bluesky-gym"
 version = "0.1.0"
 dependencies = [
-    "bluesky-simulator",
     "torch==2.2.0",
     "pygame==2.5.2",
     "gymnasium",
