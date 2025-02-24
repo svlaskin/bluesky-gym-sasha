@@ -14,8 +14,11 @@ bluesky_gym.register_envs()
 env_name = 'CentralisedMergeEnv-v0'
 algorithm = SAC
 num_cpu = 10
-# extra_string = "_large_model_4M"
-extra_string = "_extra"
+# extra_string = "_SAC_5drones"
+extra_string = "_SAC_10drones_fixed2"
+# extra_string = "_SAC_10drones"
+# extra_string = "_extra"
+# extra_string = ""
 
 # Initialize logger
 log_dir = f'./logs/{env_name}/'
@@ -61,13 +64,17 @@ if __name__ == "__main__":
             n_envs = num_cpu,
             vec_env_cls=SubprocVecEnv)
     save_callback = SaveModelCallback(save_freq=1000, save_path="./saved_models", verbose=1)
-    net_arch = dict(pi=[256, 256, 256], qf=[256, 256, 256])  # Separate actor (`pi`) and critic (`vf`) network
+    # model = algorithm("MultiInputPolicy", env, verbose=1,learning_rate=3e-4) # comment out if using larger
+
+    # larger model
+    net_arch = dict(pi=[1000, 256, 256], qf=[256, 256, 256])  # Separate actor (`pi`) and critic (`vf`) network
     policy_kwargs = dict(
         net_arch=net_arch
     )
     model = algorithm("MultiInputPolicy", env, policy_kwargs=policy_kwargs, verbose=1,learning_rate=3e-4)
+
     if TRAIN:
-        model.learn(total_timesteps=0.1e6, callback = CallbackList([save_callback,csv_logger_callback]))
+        model.learn(total_timesteps=4e6, callback = CallbackList([save_callback,csv_logger_callback]))
         # model.learn(total_timesteps=500000, callback = CallbackList([save_callback,csv_logger_callback]))
         model.save(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp{extra_string}")
         del model

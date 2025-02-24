@@ -7,6 +7,7 @@ logs/
 models/
 dist/
 saved_models/
+sensitivity_logs/
 sensitivity_analysis_check.py
 sensitivity_analysis_check_baseline.py
 sensitivity_analysis_plot.py

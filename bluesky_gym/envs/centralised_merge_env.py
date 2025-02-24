@@ -268,7 +268,7 @@ class CentralisedMergeEnv(gym.Env):
             self.airspeed = np.append(self.airspeed, bs.traf.tas[ac_idx])
             
             # AC relative position to FAF, m
-            dist, brg = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, bs.traf.lat[ac_idx],bs.traf.lon[ac_idx])
+            brg, dist = bs.tools.geo.kwikqdrdist(self.wpt_lat, self.wpt_lon, bs.traf.lat[ac_idx],bs.traf.lon[ac_idx])
             self.x_r = np.append(self.x_r, (dist * NM2KM * 1000) * np.cos(np.deg2rad(brg)))
             self.y_r = np.append(self.y_r, (dist * NM2KM * 1000) * np.sin(np.deg2rad(brg)))
             
@@ -285,7 +285,7 @@ class CentralisedMergeEnv(gym.Env):
             self.distances = np.append(self.distances, distances[ac_idx])
 
             # now redo all for relative to other AC
-            dist_int, brg_int = bs.tools.geo.kwikqdrdist(bs.traf.lat, bs.traf.lon, bs.traf.lat[ac_idx],bs.traf.lon[ac_idx])
+            brg_int, dist_int = bs.tools.geo.kwikqdrdist(bs.traf.lat, bs.traf.lon, bs.traf.lat[ac_idx],bs.traf.lon[ac_idx])
             closest_int_indices = self.ac_indices[np.argsort(distances)]
             closest_int_indices_n = closest_int_indices[1:N_NEAREST+1]
             self.intruder_distance = np.append(self.intruder_distance,dist_int[closest_int_indices_n])

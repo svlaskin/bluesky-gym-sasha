@@ -21,15 +21,23 @@ ave_window = 100 # 500 best
 # test = pd.read_csv(f'logs/{env}/test.csv')
 
 # normal logs
-sac = pd.read_csv(f'logs/{env}/{env}_SAC.csv')
+# sac = pd.read_csv(f'logs/{env}/{env}_SAC.csv')
 # ppo = pd.read_csv(f'logs/{env}/{env}_PPO_10_sett1.csv')
 # td3 = pd.read_csv(f'logs/{env}/{env}_TD3.csv')
 # ddpg = pd.read_csv(f'logs/{env}/{env}_DDPG.csv')
 
-# BASELINE 
+# extra_str2 = "_PPO_5drones"
+# extra_str2 = "_PPO_10drones"
+extra_str = "_SAC_10drones"
+# extra_str = "_SAC_10drones_speedonly"
+extra_str2 = ""
+extra_string_sac = "_SAC_10drones_fixed2"
+
+# BASELINE _large_model_norm_10af5dt
 # sac = pd.read_csv(f'logs/{env}/{env}_SAC.csv')
-sac = pd.read_csv(f'logs/{env}/{env}_SAC_extra.csv')
-ppo = pd.read_csv(f'logs/{env}/{env}_PPO.csv')
+sac = pd.read_csv(f'logs/{env}/{env}_SAC{extra_str}.csv')
+ppo = pd.read_csv(f'logs/{env}/{env}_PPO{extra_str2}.csv')
+sac2 = pd.read_csv(f'logs/{env}/{env}_SAC{extra_string_sac}.csv')
 baseline = pd.read_csv(f'logs/{env}/{env}_SAC_baseline.csv')
 
 # specifc dir, specify
@@ -52,41 +60,121 @@ name5 = 'average_hdginput'
 # plt.plot(cont['timesteps'][:-(ave_window-1)],moving_average(cont[name],ave_window),label='cont')
 # plt.plot(test['timesteps'][:-(ave_window-1)],moving_average(test[name],ave_window),label='test')
 
+plot_reward = True
+plot_intrusions = True
+plot_drift = True
+plot_v_in = True
+plot_hdg_in = True
+
 # ----------- pure reward --------------------------------------------------------------------------
-plt.figure()
-plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name],ave_window),label='sac')
-plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name],ave_window),label='ppo')
-# # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name],ave_window),label='reward_td3')
-# # plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name],ave_window),label='reward_ddpg')
-plt.plot(baseline['timesteps'][:-(ave_window-1)],moving_average(baseline[name],ave_window),label='base')
-plt.xlabel("Timesteps")
-plt.ylabel("Reward")
-# plt.grid(axis='y')
-plt.legend()
+if plot_reward:
+    plt.figure()
+    plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name],ave_window),label='sac')
+    plt.plot(sac2['timesteps'][:-(ave_window-1)],moving_average(sac2[name],ave_window),label='sac2') # TODO: remove this eventually. removed reach reward, so temporary + 10 before all reruns
+    plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name],ave_window),label='ppo')
+    # # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name],ave_window),label='reward_td3')
+    # # plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name],ave_window),label='reward_ddpg')
+    plt.plot(baseline['timesteps'][:-(ave_window-1)],moving_average(baseline[name]-10,ave_window),label='base')
+    plt.xlabel("Timesteps")
+    plt.ylabel("Reward")
+    # plt.grid(axis='y')
+    plt.legend()
 # ----------- pure intrusions --------------------------------------------------------------------------
-plt.figure()
-plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name2],ave_window),label='sac')
-plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name2],ave_window),label='ppo')
-# # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name2],ave_window),label='int_td3')
-# # plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name2],ave_window),label='int_ddpg')
-plt.plot(baseline['timesteps'][:-(ave_window-1)],moving_average(baseline[name2],ave_window),label='base')
-plt.xlabel("Timesteps")
-plt.ylabel("Intrusions")
-# plt.grid(axis='y')
-plt.legend()
+if plot_intrusions:
+    plt.figure()
+    plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name2],ave_window),label='sac')
+    plt.plot(sac2['timesteps'][:-(ave_window-1)],moving_average(sac2[name2],ave_window),label='sac2')
+    plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name2],ave_window),label='ppo')
+    # # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name2],ave_window),label='int_td3')
+    # # plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name2],ave_window),label='int_ddpg')
+    plt.plot(baseline['timesteps'][:-(ave_window-1)],moving_average(baseline[name2],ave_window),label='base')
+    plt.xlabel("Timesteps")
+    plt.ylabel("Intrusions")
+    # plt.grid(axis='y')
+    plt.legend()
 # ----------- pure drift --------------------------------------------------------------------------
-plt.figure()
-plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name3],ave_window),label='sac')
-plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name3],ave_window),label='ppo')
-# plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name3],ave_window),label='drift_td3')
-# plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name3],ave_window),label='drift_ddpg')
-plt.plot(baseline['timesteps'][:-(ave_window-1)],moving_average(baseline[name3],ave_window),label='base')
-plt.xlabel("Timesteps")
-plt.ylabel("Average Drift")
-# plt.grid(axis='y')
-plt.legend()
+if plot_drift:
+    plt.figure()
+    plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name3],ave_window),label='sac')
+    plt.plot(sac2['timesteps'][:-(ave_window-1)],moving_average(sac2[name3],ave_window),label='sac2')
+    plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name3],ave_window),label='ppo')
+    # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name3],ave_window),label='drift_td3')
+    # plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name3],ave_window),label='drift_ddpg')
+    plt.plot(baseline['timesteps'][:-(ave_window-1)],moving_average(baseline[name3],ave_window),label='base')
+    plt.xlabel("Timesteps")
+    plt.ylabel("Average Drift")
+    # plt.grid(axis='y')
+    plt.legend()
 
 # ----------- vel input avg --------------------------------------------------------------------------
+if plot_v_in:
+    plt.figure()
+    plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name4],ave_window),label='sac')
+    plt.plot(sac2['timesteps'][:-(ave_window-1)],moving_average(sac2[name3],ave_window),label='sac2')
+    plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name4],ave_window),label='ppo')
+    # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name3],ave_window),label='drift_td3')
+    # plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name3],ave_window),label='drift_ddpg')
+    # plt.plot(baseline['timesteps'][:-(ave_window-1)],moving_average(baseline[name4],ave_window),label='base')
+    plt.xlabel("Timesteps")
+    plt.ylabel("Average velocity Input [m/s]")
+    # plt.grid(axis='y')
+    plt.legend()
+
+# ----------- hdg input avg --------------------------------------------------------------------------    
+if plot_hdg_in:
+    plt.figure()
+    plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name5],ave_window),label='sac')
+    plt.plot(sac2['timesteps'][:-(ave_window-1)],moving_average(sac2[name3],ave_window),label='sac2')
+    plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name5],ave_window),label='ppo')
+    # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name3],ave_window),label='drift_td3')
+    # plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name3],ave_window),label='drift_ddpg')
+    # plt.plot(baseline['timesteps'][:-(ave_window-1)],moving_average(baseline[name5],ave_window),label='base')
+    plt.xlabel("Timesteps")
+    plt.ylabel("Average Heading Input [deg]")
+    # plt.grid(axis='y')
+    plt.legend()
+
+# if plot_v_in or plot_hdg_in:
+#     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+
+#     # Plot for average velocity input
+#     if plot_v_in:
+#         ax1.plot(
+#             sac['timesteps'][:-(ave_window - 1)],
+#             moving_average(sac[name4], ave_window),
+#             label='sac'
+#         )
+#         ax1.plot(
+#             ppo['timesteps'][:-(ave_window - 1)],
+#             moving_average(ppo[name4], ave_window),
+#             label='ppo'
+#         )
+#         ax1.set_ylabel("Average Velocity Input [m/s]")
+#         ax1.legend()
+#         # ax1.grid(axis='y')
+
+#     # Plot for average heading input
+#     if plot_hdg_in:
+#         ax2.plot(
+#             sac['timesteps'][:-(ave_window - 1)],
+#             moving_average(sac[name5], ave_window),
+#             label='sac'
+#         )
+#         ax2.plot(
+#             ppo['timesteps'][:-(ave_window - 1)],
+#             moving_average(ppo[name5], ave_window),
+#             label='ppo'
+#         )
+#         ax2.set_xlabel("Timesteps")
+#         ax2.set_ylabel("Average Heading Input [deg]")
+#         ax2.legend()
+#         # ax2.grid(axis='y')
+
+#     # Add the main title for the plots
+#     fig.suptitle("Action Evolution Through Training Plots", fontsize=14)
+#     plt.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust layout to fit the title
+#     plt.show()
+
 # plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name4],ave_window),label='v_in_sac')
 # plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name4],ave_window),label='v_in_ppo')
 # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name4],ave_window),label='v_in_td3')
