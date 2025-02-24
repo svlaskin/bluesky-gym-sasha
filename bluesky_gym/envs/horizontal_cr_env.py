@@ -8,22 +8,22 @@ import bluesky_gym.envs.common.functions as fn
 import gymnasium as gym
 from gymnasium import spaces
 
-DISTANCE_MARGIN = 5 # km
+DISTANCE_MARGIN = 0.5 # km
 REACH_REWARD = 1
 
 DRIFT_PENALTY = -0.1
 INTRUSION_PENALTY = -1
 
-NUM_INTRUDERS = 5
+NUM_INTRUDERS = 10
 NUM_WAYPOINTS = 1
-INTRUSION_DISTANCE = 5 # NM
+INTRUSION_DISTANCE = 0.15 # NM
 
-WAYPOINT_DISTANCE_MIN = 100
-WAYPOINT_DISTANCE_MAX = 150
+WAYPOINT_DISTANCE_MIN = 10
+WAYPOINT_DISTANCE_MAX = 30
 
 D_HEADING = 45
 
-AC_SPD = 150
+AC_SPD = 10
 
 NM2KM = 1.852
 
@@ -88,7 +88,7 @@ class HorizontalCREnv(gym.Env):
         self.total_intrusions = 0
         self.average_drift = np.array([])
 
-        bs.traf.cre('KL001',actype="A320",acspd=AC_SPD)
+        bs.traf.cre('DR001',actype="M600",acspd=AC_SPD)
 
         self._generate_conflicts()
         self._generate_waypoint()
@@ -124,15 +124,16 @@ class HorizontalCREnv(gym.Env):
 
         return observation, reward, terminated, False, info
 
-    def _generate_conflicts(self, acid = 'KL001'):
+    def _generate_conflicts(self, acid = 'DR001'):
         target_idx = bs.traf.id2idx(acid)
         for i in range(NUM_INTRUDERS):
             dpsi = np.random.randint(45,315)
             cpa = np.random.randint(0,INTRUSION_DISTANCE)
-            tlosh = np.random.randint(100,1000)
-            bs.traf.creconfs(acid=f'{i}',actype="A320",targetidx=target_idx,dpsi=dpsi,dcpa=cpa,tlosh=tlosh)
+            tlosh = np.random.randint(10,100)
+            bs.traf.creconfs(acid=f'{i}',actype="M600",targetidx=target_idx,dpsi=dpsi,dcpa=cpa,tlosh=tlosh)
+            bs.traf.perf.axmax[-1] = 5 # m/s2, max acceln, overwrite the default.
 
-    def _generate_waypoint(self, acid = 'KL001'):
+    def _generate_waypoint(self, acid = 'DR001'):
         self.wpt_lat = []
         self.wpt_lon = []
         self.wpt_reach = []
@@ -148,7 +149,7 @@ class HorizontalCREnv(gym.Env):
             self.wpt_reach.append(0)
 
     def _get_obs(self):
-        ac_idx = bs.traf.id2idx('KL001')
+        ac_idx = bs.traf.id2idx('DR001')
 
         self.intruder_distance = []
         self.cos_bearing = []
@@ -258,7 +259,7 @@ class HorizontalCREnv(gym.Env):
         return drift * DRIFT_PENALTY
 
     def _check_intrusion(self):
-        ac_idx = bs.traf.id2idx('KL001')
+        ac_idx = bs.traf.id2idx('DR001')
         reward = 0
         for i in range(NUM_INTRUDERS):
             int_idx = i+1
@@ -272,7 +273,7 @@ class HorizontalCREnv(gym.Env):
     def _get_action(self,action):
         action = self.ac_hdg + action * D_HEADING
 
-        bs.stack.stack(f"HDG KL001 {action[0]}")
+        bs.stack.stack(f"HDG DR001 {action[0]}")
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
@@ -289,7 +290,7 @@ class HorizontalCREnv(gym.Env):
         canvas.fill((135,206,235))
 
         # draw ownship
-        ac_idx = bs.traf.id2idx('KL001')
+        ac_idx = bs.traf.id2idx('DR001')
         ac_length = 8
         heading_end_x = ((np.cos(np.deg2rad(bs.traf.hdg[ac_idx])) * ac_length)/max_distance)*self.window_width
         heading_end_y = ((np.sin(np.deg2rad(bs.traf.hdg[ac_idx])) * ac_length)/max_distance)*self.window_width
