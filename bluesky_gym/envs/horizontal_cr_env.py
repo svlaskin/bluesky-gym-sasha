@@ -14,12 +14,12 @@ REACH_REWARD = 1
 DRIFT_PENALTY = -0.1
 INTRUSION_PENALTY = -1
 
-NUM_INTRUDERS = 10
+NUM_INTRUDERS = 20
 NUM_WAYPOINTS = 1
-INTRUSION_DISTANCE = 0.15 # NM
+INTRUSION_DISTANCE = 0.15 # NM, this is 138m. For testing, 50.
 
 WAYPOINT_DISTANCE_MIN = 10
-WAYPOINT_DISTANCE_MAX = 30
+WAYPOINT_DISTANCE_MAX = 25
 
 D_HEADING = 45
 
@@ -128,7 +128,7 @@ class HorizontalCREnv(gym.Env):
         target_idx = bs.traf.id2idx(acid)
         for i in range(NUM_INTRUDERS):
             dpsi = np.random.randint(45,315)
-            cpa = np.random.randint(0,INTRUSION_DISTANCE)
+            cpa = np.random.uniform(0,INTRUSION_DISTANCE)
             tlosh = np.random.randint(10,100)
             bs.traf.creconfs(acid=f'{i}',actype="M600",targetidx=target_idx,dpsi=dpsi,dcpa=cpa,tlosh=tlosh)
             bs.traf.perf.axmax[-1] = 5 # m/s2, max acceln, overwrite the default.
@@ -284,14 +284,14 @@ class HorizontalCREnv(gym.Env):
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        max_distance = 200 # width of screen in km
+        max_distance = 20 # width of screen in km
 
         canvas = pygame.Surface(self.window_size)
         canvas.fill((135,206,235))
 
         # draw ownship
         ac_idx = bs.traf.id2idx('DR001')
-        ac_length = 8
+        ac_length = 0.8
         heading_end_x = ((np.cos(np.deg2rad(bs.traf.hdg[ac_idx])) * ac_length)/max_distance)*self.window_width
         heading_end_y = ((np.sin(np.deg2rad(bs.traf.hdg[ac_idx])) * ac_length)/max_distance)*self.window_width
 
@@ -299,11 +299,11 @@ class HorizontalCREnv(gym.Env):
             (0,0,0),
             (self.window_width/2-heading_end_x/2,self.window_height/2+heading_end_y/2),
             ((self.window_width/2)+heading_end_x/2,(self.window_height/2)-heading_end_y/2),
-            width = 4
+            width = 1
         )
 
         # draw heading line
-        heading_length = 50
+        heading_length = 2
         heading_end_x = ((np.cos(np.deg2rad(bs.traf.hdg[ac_idx])) * heading_length)/max_distance)*self.window_width
         heading_end_y = ((np.sin(np.deg2rad(bs.traf.hdg[ac_idx])) * heading_length)/max_distance)*self.window_width
 
@@ -315,7 +315,7 @@ class HorizontalCREnv(gym.Env):
         )
 
         # draw intruders
-        ac_length = 3
+        ac_length = 0.3
 
         for i in range(NUM_INTRUDERS):
             int_idx = i+1
@@ -338,11 +338,11 @@ class HorizontalCREnv(gym.Env):
                 color,
                 (x_pos,y_pos),
                 ((x_pos)+heading_end_x,(y_pos)-heading_end_y),
-                width = 4
+                width = 1
             )
 
             # draw heading line
-            heading_length = 10
+            heading_length = 2
             heading_end_x = ((np.cos(np.deg2rad(int_hdg)) * heading_length)/max_distance)*self.window_width
             heading_end_y = ((np.sin(np.deg2rad(int_hdg)) * heading_length)/max_distance)*self.window_width
 
