@@ -48,7 +48,7 @@ model.save()
 
 ## Contributing and Assistance
 If you would like to contribute to BlueSky-Gym or need assistance in setting up or creating your own environments, do not hesitate to open an issue or reach out to one of us via the BlueSky-Gym [Discord](https://discord.gg/3Eta49vb).
-Additionally you can have a look at our [roadmap](#24) for inspiration on where you can contribute and to get an idea of the direction BlueSky-Gym is going.
+Additionally you can have a look at the [roadmap](https://github.com/TUDelft-CNS-ATM/bluesky-gym/issues/24) for inspiration on where you can contribute and to get an idea of the direction BlueSky-Gym is going.
 
 
 ## Citing
