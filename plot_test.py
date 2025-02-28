@@ -12,7 +12,7 @@ def time_steps_per_episode(df):
     return time_steps
 
 env = "HorizontalCREnv-v0"
-ave_window = 100 # 500 best
+ave_window = 50 # 500 best
 
 # drift01 = pd.read_csv(f'logs/{env}/drift01.csv')
 # drift001 = pd.read_csv(f'logs/{env}/drift001.csv')
@@ -28,18 +28,21 @@ ave_window = 100 # 500 best
 
 # extra_str2 = "_PPO_5drones"
 # extra_str2 = "_PPO_10drones"
-extra_str = "_SAC_20drones_ideal_075"
+# extra_str = "_SAC_20drones_ideal_075"
+extra_str = "_sac_20drones_noise2_075" # selective and scaled
 extra_str3 = "_sac_20drones_noise_075" # sac with noise
 # extra_str = "_SAC_10drones_speedonly"
 # extra_str2 = ""
 # extra_string_sac = "_SAC_10drones_fixed2"
 extra_str2 = "_ppo_20drones_ideal_075"
+extra_str4 = "_ppo_20drones_noise_075"
 
 # BASELINE _large_model_norm_10af5dt
 # sac = pd.read_csv(f'logs/{env}/{env}_SAC.csv')
 sac = pd.read_csv(f'logs/{env}/{env}_SAC{extra_str}.csv')
 ppo = pd.read_csv(f'logs/{env}/{env}_PPO{extra_str2}.csv')
 sac2 = pd.read_csv(f'logs/{env}/{env}_SAC{extra_str3}.csv')
+# ppo2 = pd.read_csv(f'logs/{env}/{env}_PPO{extra_str4}.csv')
 # baseline = pd.read_csv(f'logs/{env}/{env}_SAC_baseline.csv')
 
 # specifc dir, specify
@@ -74,6 +77,7 @@ if plot_reward:
     plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name],ave_window),label='sac')
     plt.plot(sac2['timesteps'][:-(ave_window-1)],moving_average(sac2[name],ave_window),label='sac2') # TODO: remove this eventually. removed reach reward, so temporary + 10 before all reruns
     plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name],ave_window),label='ppo')
+    # plt.plot(ppo2['timesteps'][:-(ave_window-1)],moving_average(ppo[name],ave_window),label='ppo2')
     # # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name],ave_window),label='reward_td3')
     # # plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name],ave_window),label='reward_ddpg')
     # plt.plot(baseline['timesteps'][:-(ave_window-1)],moving_average(baseline[name]-10,ave_window),label='base')
@@ -87,6 +91,7 @@ if plot_intrusions:
     plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name2],ave_window),label='sac')
     plt.plot(sac2['timesteps'][:-(ave_window-1)],moving_average(sac2[name2],ave_window),label='sac2')
     plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name2],ave_window),label='ppo')
+    # plt.plot(ppo2['timesteps'][:-(ave_window-1)],moving_average(ppo[name2],ave_window),label='ppo2')
     # # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name2],ave_window),label='int_td3')
     # # plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name2],ave_window),label='int_ddpg')
     # plt.plot(baseline['timesteps'][:-(ave_window-1)],moving_average(baseline[name2],ave_window),label='base')
@@ -100,6 +105,7 @@ if plot_drift:
     plt.plot(sac['timesteps'][:-(ave_window-1)],moving_average(sac[name3],ave_window),label='sac')
     plt.plot(sac2['timesteps'][:-(ave_window-1)],moving_average(sac2[name3],ave_window),label='sac2')
     plt.plot(ppo['timesteps'][:-(ave_window-1)],moving_average(ppo[name3],ave_window),label='ppo')
+    # plt.plot(ppo2['timesteps'][:-(ave_window-1)],moving_average(ppo[name3],ave_window),label='ppo2')
     # plt.plot(td3['timesteps'][:-(ave_window-1)],moving_average(td3[name3],ave_window),label='drift_td3')
     # plt.plot(ddpg['timesteps'][:-(ave_window-1)],moving_average(ddpg[name3],ave_window),label='drift_ddpg')
     # plt.plot(baseline['timesteps'][:-(ave_window-1)],moving_average(baseline[name3],ave_window),label='base')

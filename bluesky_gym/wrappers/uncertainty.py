@@ -17,6 +17,6 @@ class NoisyObservationWrapper(gym.Wrapper):
         return noisy_observation, reward, done, truncated, info
 
     def add_noise(self, observation):
-        # Add Gaussian noise to the observation
-        noise = np.random.normal(0, self.noise_level, size=observation.shape)
-        return observation + noise
+        return {key: value + np.random.normal(0, self.noise_level, size=value.shape)
+                if isinstance(value, np.ndarray) else value
+                for key, value in observation.items()}

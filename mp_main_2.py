@@ -8,21 +8,20 @@ import bluesky_gym
 import bluesky_gym.envs
 
 from bluesky_gym.utils import logger
-# from bluesky_gym.wrappers.uncertainty_selective import NoisyObservationWrapperSel
-from bluesky_gym.wrappers.uncertainty import NoisyObservationWrapper
+from bluesky_gym.wrappers.uncertainty_selective import NoisyObservationWrapperSel
+# from bluesky_gym.wrappers.uncertainty import NoisyObservationWrapper
 
 bluesky_gym.register_envs()
 
 env_name = 'HorizontalCREnv-v0'
 algorithm = SAC
 num_cpu = 10
-extra_string = "_SAC_20drones_noise_075"
+extra_string = "_SAC_20drones_noise2_075"
 
 # noise parameters
 std_noise = 1.5 #m
 # intruder_distance, cos_difference_pos, sin_difference_pos, x_difference_speed, y_difference_speed, waypoint_distance, cos_drift, sin_drift
-std_scaled = [1.5/20, 1.5, 1.5, 1.5/20]
-sel_ind = [0,3,4,5]
+std_scaled = [1.5/20, 0, 0, 1.5, 1.5, 1.5/20, 0, 0]
 
 
 # Initialize logger
@@ -59,8 +58,8 @@ def make_env():
     global env_counter
     env_base = gym.make(env_name, 
             render_mode=None)
-    # env = NoisyObservationWrapperSel(env_base, noise_level=std_scaled, select_indices=sel_ind) # with noisy observation
-    env = NoisyObservationWrapper(env_base, noise_level=0.2) # with noisy observation
+    env = NoisyObservationWrapperSel(env_base, noise_levels=std_scaled) # with noisy observation
+    # env = NoisyObservationWrapper(env_base, noise_level=0.2) # with noisy observation
     # Set a different seed for each created environment.
     env.reset(seed=env_counter)
     env_counter +=1 
@@ -90,8 +89,8 @@ if __name__ == "__main__":
     
     # Test the trained model
     env_base = gym.make(env_name, render_mode="human")
-    # env = NoisyObservationWrapperSel(env_base, noise_level=std_scaled, select_indices=sel_ind) # with noisy observation
-    env = NoisyObservationWrapper(env_base, noise_level=0.2) # with noisy observation
+    env = NoisyObservationWrapperSel(env_base, noise_levels=std_scaled) # with noisy observation
+    # env = NoisyObservationWrapper(env_base, noise_level=0.2) # with noisy observation
     model = algorithm.load(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp{extra_string}", env=env)
     for i in range(EVAL_EPISODES):
         done = truncated = False
