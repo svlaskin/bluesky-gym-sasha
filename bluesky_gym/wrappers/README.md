@@ -7,7 +7,7 @@ See the following example for creating a simple 'noisy observation' environment
 ```python
 import gymnasium as gym
 import bluesky_gym
-from bluesky_gym.wrappers.wind import NoisyObservationWrapper
+from bluesky_gym.wrappers.uncertainty import NoisyObservationWrapper
 bluesky_gym.register_envs()
 
 env = gym.make('MergeEnv-v0', render_mode='human')
