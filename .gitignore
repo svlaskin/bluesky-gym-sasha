@@ -8,3 +8,4 @@ models/
 dist/
 bluesky_gym/envs/centralised_merge_env.py
 saved_models/
+main.py

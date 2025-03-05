@@ -18,15 +18,15 @@ from bluesky_gym.utils import logger
 
 bluesky_gym.register_envs()
 
-env_name = 'StaticObstacleEnv-v0'
+env_name = 'HorizontalCREnv-v0'
 algorithm = SAC
 
 # Initialize logger
 log_dir = f'./logs/{env_name}/'
-file_name = f'{env_name}_{str(algorithm.__name__)}.csv'
+file_name = f'{env_name}_{str(algorithm.__name__)}_test.csv'
 csv_logger_callback = logger.CSVLoggerCallback(log_dir, file_name)
 
-TRAIN = False
+TRAIN = True
 EVAL_EPISODES = 10
 
 

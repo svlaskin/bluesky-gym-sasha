@@ -6,6 +6,7 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 
 import bluesky_gym
 import bluesky_gym.envs
+import numpy as np
 
 from bluesky_gym.utils import logger
 from bluesky_gym.wrappers.uncertainty_selective import NoisyObservationWrapperSel
@@ -16,12 +17,12 @@ bluesky_gym.register_envs()
 env_name = 'HorizontalCREnv-v0'
 algorithm = SAC
 num_cpu = 10
-extra_string = "_SAC_20drones_noise2_075"
+extra_string = "_SAC_20drones_noise2_015"
 
 # noise parameters
 std_noise = 1.5 #m
 # intruder_distance, cos_difference_pos, sin_difference_pos, x_difference_speed, y_difference_speed, waypoint_distance, cos_drift, sin_drift
-std_scaled = [1.5/20, 0, 0, 1.5, 1.5, 1.5/20, 0, 0]
+std_scaled = [1.5/20, np.cos(1.5/20), np.sin(1.5/20), 1.5, 1.5, 1.5/20, np.cos(1.5/20), np.sin(1.5/20)]
 
 
 # Initialize logger
@@ -29,7 +30,7 @@ log_dir = f'./logs/{env_name}/'
 file_name = f'{env_name}_{str(algorithm.__name__)}{extra_string}.csv'
 csv_logger_callback = logger.CSVLoggerCallback(log_dir, file_name)
 
-TRAIN = True
+TRAIN = False
 EVAL_EPISODES = 10
 
 # Initialise the environment counter
