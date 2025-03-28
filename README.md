@@ -10,6 +10,7 @@ Build on [BlueSky](https://github.com/TUDelft-CNS-ATM/bluesky) and The Farama Fo
 For a complete list of the currently available environments click [here](bluesky_gym/envs/README.md)
 
 ## Installation
+**Update 27 February 2025:** *There is currently a bug when pip installing BlueSky-Simulator, which causes the pip install to fail on most machines (see [issue](https://github.com/TUDelft-CNS-ATM/bluesky/issues/543)). For now, users can clone the repository linked in [this](https://github.com/TUDelft-CNS-ATM/bluesky-gym/tree/main_bluesky) branch and pip install the requirements.txt file to circumvent this problem. This branch contains a local, barebones, version of BlueSky-Simulator from which the required functionality is retrieved.*
 
 `pip install bluesky-gym`
 
@@ -45,6 +46,10 @@ model = DDPG("MultiInputPolicy",env)
 model.learn(total_timesteps=2e6)
 model.save()
 ```
+
+## Contributing and Assistance
+If you would like to contribute to BlueSky-Gym or need assistance in setting up or creating your own environments, do not hesitate to open an issue or reach out to one of us via the BlueSky-Gym [Discord](https://discord.gg/s7CdxcSX).
+Additionally you can have a look at the [roadmap](https://github.com/TUDelft-CNS-ATM/bluesky-gym/issues/24) for inspiration on where you can contribute and to get an idea of the direction BlueSky-Gym is going.
 
 
 ## Citing
