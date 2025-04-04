@@ -18,8 +18,10 @@ NUM_INTRUDERS = 20
 NUM_WAYPOINTS = 1
 INTRUSION_DISTANCE = 0.075 # NM, this is 138m. For testing, 50.
 
-WAYPOINT_DISTANCE_MIN = 10
-WAYPOINT_DISTANCE_MAX = 25
+# WAYPOINT_DISTANCE_MIN = 10
+# WAYPOINT_DISTANCE_MAX = 25
+WAYPOINT_DISTANCE_MIN = 5
+WAYPOINT_DISTANCE_MAX = 10
 
 D_HEADING = 45
 
@@ -129,7 +131,8 @@ class HorizontalCREnv(gym.Env):
         for i in range(NUM_INTRUDERS):
             dpsi = np.random.randint(45,315)
             cpa = np.random.uniform(0,INTRUSION_DISTANCE)
-            tlosh = np.random.randint(10,100)
+            # tlosh = np.random.randint(10,100)
+            tlosh = np.random.randint(5,40)
             bs.traf.creconfs(acid=f'{i}',actype="M600",targetidx=target_idx,dpsi=dpsi,dcpa=cpa,tlosh=tlosh)
             bs.traf.perf.axmax[-1] = 5 # m/s2, max acceln, overwrite the default.
 

@@ -15,9 +15,9 @@ from bluesky_gym.wrappers.uncertainty_selective import NoisyObservationWrapperSe
 bluesky_gym.register_envs()
 
 env_name = 'HorizontalCREnv-v0'
-algorithm = SAC
+algorithm = PPO
 num_cpu = 10
-extra_string = "_sac_20drones_noise2_0075"
+extra_string = "_ppo_20drones_noise_small_tlosh5_40_0075"
 
 # noise parameters
 std_noise = 1.5 #m
