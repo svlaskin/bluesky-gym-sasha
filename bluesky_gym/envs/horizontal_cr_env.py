@@ -1,3 +1,8 @@
+"""
+Horizontal CR adapted for M600 performance characteristics, with smaller area and more spawned intruders.
+This is used for uncertainty-robust CR training, with togglable noise.
+The BASELINE boolean is to activate MVP in the place of the model input, for comparison purposes. This suppresses the action stack commands, and activates RESO MVP.
+"""
 import numpy as np
 import pygame
 
@@ -11,25 +16,31 @@ from gymnasium import spaces
 DISTANCE_MARGIN = 0.5 # km
 REACH_REWARD = 1
 
-DRIFT_PENALTY = -0.1
-INTRUSION_PENALTY = -1
+DRIFT_PENALTY = -0.1/10
+INTRUSION_PENALTY = -1/5
+NEG_SPEED_PENALTY = -0.1/10
 
-NUM_INTRUDERS = 20
+NUM_INTRUDERS = 10
 NUM_WAYPOINTS = 1
 INTRUSION_DISTANCE = 0.075 # NM, this is 138m. For testing, 50.
-
+# INTRUSION_DISTANCE = 0.15
 # WAYPOINT_DISTANCE_MIN = 10
 # WAYPOINT_DISTANCE_MAX = 25
-WAYPOINT_DISTANCE_MIN = 5
-WAYPOINT_DISTANCE_MAX = 10
+WAYPOINT_DISTANCE_MIN = 5 # 5
+WAYPOINT_DISTANCE_MAX = 15 # 10
 
 D_HEADING = 45
+D_SPEED = 5
 
 AC_SPD = 10
 
 NM2KM = 1.852
+MpS2Kt = 1.94384
 
-ACTION_FREQUENCY = 10
+ACTION_FREQUENCY = 5 # nominal 10
+
+EXTENDED_ACTION_SPACE = True
+BASELINE = False
 
 class HorizontalCREnv(gym.Env):
     """ 
@@ -61,7 +72,10 @@ class HorizontalCREnv(gym.Env):
             }
         )
        
-        self.action_space = spaces.Box(-1, 1, shape=(1,), dtype=np.float64)
+        if EXTENDED_ACTION_SPACE:
+            self.action_space = spaces.Box(-1, 1, shape=(2,), dtype=np.float64) # for both
+        else:
+            self.action_space = spaces.Box(-1, 1, shape=(1,), dtype=np.float64) # for heading only
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -71,12 +85,17 @@ class HorizontalCREnv(gym.Env):
 
         # initialize dummy screen and set correct sim speed
         bs.scr = ScreenDummy()
-        bs.stack.stack('DT 5;FF')
+        bs.stack.stack('DT 1;FF') # nominal is 5
 
         # initialize values used for logging -> input in _get_info
         self.total_reward = 0
         self.total_intrusions = 0
         self.average_drift = np.array([])
+        self.average_v_in = np.array([]) # average speed input
+        self.average_h_in = np.array([]) # average heading input
+        self.cpa_vec = None #closest point of approach per intruder, initialised as high value
+        # self.bearing_cpa_vec = np.array([]) # beraing at CPA,
+        # self.pos_cpa_vec =  np.array([]) # ownship position at CPA, unused
 
         self.window = None
         self.clock = None
@@ -91,6 +110,9 @@ class HorizontalCREnv(gym.Env):
         self.average_drift = np.array([])
 
         bs.traf.cre('DR001',actype="M600",acspd=AC_SPD)
+        if BASELINE:
+            bs.stack.stack("asas on")
+            bs.stack.stack("reso mvp")
 
         self._generate_conflicts()
         self._generate_waypoint()
@@ -132,8 +154,10 @@ class HorizontalCREnv(gym.Env):
             dpsi = np.random.randint(45,315)
             cpa = np.random.uniform(0,INTRUSION_DISTANCE)
             # tlosh = np.random.randint(10,100)
-            tlosh = np.random.randint(5,40)
+            tlosh = np.random.randint(5,75)
             bs.traf.creconfs(acid=f'{i}',actype="M600",targetidx=target_idx,dpsi=dpsi,dcpa=cpa,tlosh=tlosh)
+            if BASELINE:
+                bs.stack.stack(f'RESOOFF {i}')
             bs.traf.perf.axmax[-1] = 5 # m/s2, max acceln, overwrite the default.
 
     def _generate_waypoint(self, acid = 'DR001'):
@@ -167,6 +191,9 @@ class HorizontalCREnv(gym.Env):
         self.drift = []
 
         self.ac_hdg = bs.traf.hdg[ac_idx]
+        self.ac_spd = bs.traf.vs[ac_idx]
+        if self.cpa_vec == None:
+            self.cpa_vec = self.intruder_distance
 
         for i in range(NUM_INTRUDERS):
             int_idx = i+1
@@ -186,7 +213,10 @@ class HorizontalCREnv(gym.Env):
 
             self.x_difference_speed.append(x_dif)
             self.y_difference_speed.append(y_dif)
-
+        
+        # update CPA vector
+        mask = self.intruder_distance < self.cpa_vec # if the current is lower than the stored
+        self.cpa_vec[mask] = self.intruder_distance[mask]
 
         for lat, lon in zip(self.wpt_lat, self.wpt_lon):
             
@@ -223,7 +253,10 @@ class HorizontalCREnv(gym.Env):
         return {
             'total_reward': self.total_reward,
             'total_intrusions': self.total_intrusions,
-            'average_drift': self.average_drift.mean()
+            'average_drift': self.average_drift.mean(),
+            'average_v_in': np.mean(self.average_v_in),
+            'average_h_in': np.mean(self.average_h_in),
+            'cpa': self.cpa_vec
         }
 
     def _get_reward(self):
@@ -234,6 +267,7 @@ class HorizontalCREnv(gym.Env):
         reach_reward = self._check_waypoint()
         drift_reward = self._check_drift()
         intrusion_reward = self._check_intrusion()
+        speed_reward = self._check_speed()
 
         total_reward = reach_reward + drift_reward + intrusion_reward
         self.total_reward += total_reward
@@ -260,6 +294,12 @@ class HorizontalCREnv(gym.Env):
         drift = abs(np.deg2rad(self.drift[0]))
         self.average_drift = np.append(self.average_drift, drift)
         return drift * DRIFT_PENALTY
+    
+    def _check_speed(self):
+        if self.ac_spd<0:
+            return np.abs(NEG_SPEED_PENALTY*self.ac_spd)
+        else:
+            return 0
 
     def _check_intrusion(self):
         ac_idx = bs.traf.id2idx('DR001')
@@ -274,9 +314,26 @@ class HorizontalCREnv(gym.Env):
         return reward
     
     def _get_action(self,action):
-        action = self.ac_hdg + action * D_HEADING
+        dv = action[1] * D_SPEED
+        dh = action[0] * D_HEADING
+        self.average_h_in = np.append(self.average_h_in, dh)
+        self.average_v_in = np.append(self.average_v_in, dv)
+        hdg_new = self.ac_hdg + dh
+        spd_new = (bs.traf.tas[0] + dv) * MpS2Kt
 
-        bs.stack.stack(f"HDG DR001 {action[0]}")
+        if spd_new>0:
+            if not BASELINE:
+                pass
+                # bs.stack.stack(f"SPD DR001 {spd_new}")
+        
+        # if doing only heading control
+        else:
+            hdg_new = self.ac_hdg + action * D_HEADING
+            if not BASELINE:
+                pass
+                # bs.stack.stack(f"HDG DR001 {hdg_new}")
+        
+
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":

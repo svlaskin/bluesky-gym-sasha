@@ -12,7 +12,7 @@ def time_steps_per_episode(df):
     return time_steps
 
 env = "HorizontalCREnv-v0"
-ave_window = 500 # 500 best
+ave_window = 1000 # 500 best
 
 # drift01 = pd.read_csv(f'logs/{env}/drift01.csv')
 # drift001 = pd.read_csv(f'logs/{env}/drift001.csv')
@@ -28,17 +28,20 @@ ave_window = 500 # 500 best
 
 # extra_str2 = "_PPO_5drones"
 # extra_str2 = "_PPO_10drones"
-extra_str = "_SAC_20drones_ideal_075"
-# extra_str = "_sac_20drones_noise_small_0075"
-extra_str3 = "_sac_20drones_noise_small_tlosh5_40_0075"
-extra_str = "_sac_20drones_noise2_015" # selective and scaled
+# extra_str = "_SAC_20drones_ideal_075"
+
+extra_str = "_sac_20drones_fin1_ideal_large_sh_tlosh5_40_0075_6000000.0"
+# extra_str = "_sac_20drones_noise_small_sh_0075"
+extra_str3 = "_sac_20drones_fin1_noise_large_sh_tlosh5_40_0075_6000000.0"
+# extra_str = "_sac_20drones_noise2_015" # selective and scaled
 # extra_str3 = "_sac_20drones_noise_075" # sac with noise
 # extra_str = "_SAC_10drones_speedonly"
 # extra_str2 = ""
 # extra_string_sac = "_SAC_10drones_fixed2"
-extra_str2 = "_ppo_20drones_ideal_075"
+# extra_str2 = "_ppo_20drones_ideal_075"
+extra_str2 = "_ppo_20drones_fin1_ideal_large_sh_tlosh5_40_0075_6000000.0"
 # extra_str4 = "_ppo_20drones_noise2_015"
-extra_str4 = "_ppo_20drones_noise_small_tlosh5_40_0075"
+extra_str4 = "_ppo_20drones_fin1_noise_large_sh_tlosh5_40_0075_6000000.0"
 
 # BASELINE _large_model_norm_10af5dt
 # sac = pd.read_csv(f'logs/{env}/{env}_SAC.csv')

@@ -1,3 +1,8 @@
+"""
+mp_main adapted for uncertainty CR.
+Includes different naming, and STD values for sensor noise.
+# TODO: figure out the required geometry so that MVP 'just' works
+"""
 import gymnasium as gym
 from stable_baselines3 import PPO, SAC, TD3, DDPG
 from stable_baselines3.common.env_util import make_vec_env
@@ -9,20 +14,21 @@ import bluesky_gym.envs
 import numpy as np
 
 from bluesky_gym.utils import logger
-from bluesky_gym.wrappers.uncertainty_selective import NoisyObservationWrapperSel
+from bluesky_gym.wrappers.uncertainty_selective import NoisyObservationWrapperSel # using selective as ideally not all observations are affected.
 # from bluesky_gym.wrappers.uncertainty import NoisyObservationWrapper
 
 bluesky_gym.register_envs()
 
 env_name = 'HorizontalCREnv-v0'
-algorithm = PPO
+algorithm = SAC
+n_timesteps = 6e6
 num_cpu = 10
-extra_string = "_ppo_20drones_noise_small_tlosh5_40_0075"
+extra_string = f"_sac_10drones_fin1_ideall_large_sh_tlosh5_40_0075_{n_timesteps}" #TODO: Fix naming convention, and f-string for ease of use
 
 # noise parameters
 std_noise = 1.5 #m
 # intruder_distance, cos_difference_pos, sin_difference_pos, x_difference_speed, y_difference_speed, waypoint_distance, cos_drift, sin_drift
-std_scaled = [1.5/20, np.cos(1.5/20), np.sin(1.5/20), 1.5, 1.5, 1.5/20, np.cos(1.5/20), np.sin(1.5/20)]
+std_scaled = [1.5/20, np.cos(1.5/20), np.sin(1.5/20), 1.5, 1.5, 1.5/20, np.cos(1.5/20), np.sin(1.5/20)] # TODO: make more realistic, and not just a first-order estimate
 
 
 # Initialize logger
@@ -30,8 +36,9 @@ log_dir = f'./logs/{env_name}/'
 file_name = f'{env_name}_{str(algorithm.__name__)}{extra_string}.csv'
 csv_logger_callback = logger.CSVLoggerCallback(log_dir, file_name)
 
-TRAIN = True
+TRAIN = False
 EVAL_EPISODES = 10
+NOISE = False
 
 # Initialise the environment counter
 env_counter = 0
@@ -59,7 +66,10 @@ def make_env():
     global env_counter
     env_base = gym.make(env_name, 
             render_mode=None)
-    env = NoisyObservationWrapperSel(env_base, noise_levels=std_scaled) # with noisy observation
+    if NOISE:
+        env = NoisyObservationWrapperSel(env_base, noise_levels=std_scaled) # with noisy observation
+    else:
+        env = env_base
     # env = NoisyObservationWrapper(env_base, noise_level=0.2) # with noisy observation
     # Set a different seed for each created environment.
     env.reset(seed=env_counter)
@@ -81,17 +91,19 @@ if __name__ == "__main__":
     model = algorithm("MultiInputPolicy", env, policy_kwargs=policy_kwargs, verbose=1,learning_rate=3e-4)
 
     if TRAIN:
-        model.learn(total_timesteps=4e6, callback = CallbackList([save_callback,csv_logger_callback]))
+        model.learn(total_timesteps=n_timesteps, callback = CallbackList([save_callback,csv_logger_callback]))
         # model.learn(total_timesteps=500000, callback = CallbackList([save_callback,csv_logger_callback]))
-        model.save(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp{extra_string}")
+        model.save(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp{extra_string}.zip")
         del model
     env.close()
     del env
     
     # Test the trained model
     env_base = gym.make(env_name, render_mode="human")
-    env = NoisyObservationWrapperSel(env_base, noise_levels=std_scaled) # with noisy observation
-    # env = NoisyObservationWrapper(env_base, noise_level=0.2) # with noisy observation
+    if NOISE:
+        env = NoisyObservationWrapperSel(env_base, noise_levels=std_scaled) # with noisy observation
+    else:
+        env = env_base
     model = algorithm.load(f"models/{env_name}/{env_name}_{str(algorithm.__name__)}/model_mp{extra_string}", env=env)
     for i in range(EVAL_EPISODES):
         done = truncated = False
