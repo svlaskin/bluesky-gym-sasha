@@ -122,7 +122,7 @@ class SectorCREnv(gym.Env):
             if self.render_mode == "human":              
                 self._render_frame()
         
-        observation = self._get_observation()        
+        observation = self._get_obs()        
         reward = self._get_reward()
         info = self._get_info()
 
