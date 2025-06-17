@@ -105,7 +105,7 @@ class SectorCREnv(gym.Env):
         self._generate_waypoints() # Create waypoints for aircraft
         self._generate_ac() # Create aircraft in the airspace
 
-        observation = self._get_observation()
+        observation = self._get_obs()
 
         info = self._get_info()
         
@@ -234,7 +234,7 @@ class SectorCREnv(gym.Env):
 
         return total_reward
     
-    def _get_observation(self):
+    def _get_obs(self):
 
         ac_idx = bs.traf.id2idx(ACTOR)
 
