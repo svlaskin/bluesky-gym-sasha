@@ -1,13 +1,13 @@
 [project]
 name = "bluesky-gym"
-version = "0.1.0"
+dynamic = ["version"]
 dependencies = [
-    "torch==2.6.0",
-    "pygame==2.6.1",
-    "gymnasium==1.1.1",
-    "stable-baselines3==2.6.0",
-    "numpy==2.2.4",
-    "bluesky-simulator==1.0.3",
+    "torch",
+    "pygame",
+    "gymnasium",
+    "stable-baselines3",
+    "numpy",
+    "bluesky-simulator>=1.0.7",
 ]
 
 authors = [
@@ -21,12 +21,17 @@ readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+
     "Development Status :: 4 - Beta",
 
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering",
 
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "License :: OSI Approved :: MIT License",
 
     "Operating System :: OS Independent",
 ]
@@ -36,8 +41,11 @@ Homepage = "https://github.com/TUDelft-CNS-ATM/bluesky-gym"
 Issues = "https://github.com/TUDelft-CNS-ATM/bluesky-gym/issues"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.26.3", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
 
 [tool.hatch.build.targets.sdist]
 include = [
