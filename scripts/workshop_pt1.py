@@ -12,7 +12,7 @@ from bluesky_gym.utils import logger
 bluesky_gym.register_envs()
 
 # Initialize the environment and logger
-env_name = 'MergeEnv-v0'
+env_name = 'SectorCREnv-v0'
 env = gym.make(env_name, render_mode=None)
 file_name = 'my_first_bsg_experiment.csv'
 logger = logger.CSVLoggerCallback('logs/', file_name)
