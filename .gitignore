@@ -1,7 +1,9 @@
-.DS_Store
-settings.cfg
-*.bak
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-
+**/__pycache__/*
+.DS_store
+.vscode
+TODO.txt
+images/
+logs/
+models/
+dist/
+sac/weights/
