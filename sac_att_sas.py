@@ -29,7 +29,7 @@ def plot_figures(self, model):
         plt.close(fig)
 
 # Logger here
-def log_episode(episode, tot_reward, tot_intrusions, tot_drift, filename="log.csv"):
+def log_episode(episode, tot_reward, tot_intrusions, tot_drift, filename="log_vonly.csv"):
     file_exists = os.path.isfile(filename)
     with open(filename, mode="a", newline="") as file:
         writer = csv.writer(file)
@@ -39,7 +39,7 @@ def log_episode(episode, tot_reward, tot_intrusions, tot_drift, filename="log.cs
 
 # def save_models(model, weights_folder = 'sac_cr_att/weights'):
 # weights_folderr = '/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_cr_att_sas_2pz'
-weights_folderr = '/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_cr_att_sas_v_only'
+weights_folderr = '/Users/sasha/Documents/Code/pettingzoo_multiuse/sac_cr_att_sas_v_only2'
 def save_models(model, weights_folder = weights_folderr):
     torch.save(model.actor.state_dict(), weights_folder+"/actor.pt")
     torch.save(model.critic_q.state_dict(), weights_folder+"/qf.pt")
@@ -47,13 +47,13 @@ def save_models(model, weights_folder = weights_folderr):
 
 
 # env = sector_cr_v0.SectorCR_ATT(render_mode=None)
-env = merge_v0.MergeEnv_ATT_sas(render_mode=None)
+env = merge_v0.MergeEnv_ATT_sas_vonly(render_mode=None)
 
 action_dim = env.action_space('DR001').shape[0] 
 observation_dim = env.observation_space('DR001').shape[0]
 n_agents = env.num_ac 
 
-num_episodes = 50_000 # 100_000
+num_episodes = 100_000 # 100_000
 train_steps = 500 # first n transitions used for training, to control complexity of samples
 max_episode_length = 2500
 
@@ -98,6 +98,12 @@ rew_array = np.array(list(rewards.values()))
 done = list(dones.values())[0]
 
 # model.store_transition(obs_array,act_array,obs_array_n,rew_array,done)
+csv_file = "metrics_unc.csv"
+
+# write header once
+with open(csv_file, "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["episode", "total_reward", "total_intrusions", "average_drift"])
 
 total_rew = np.array([])
 total_intrusions = np.array([])

@@ -33,6 +33,7 @@ import bluesky_gym.envs.common.functions as fn
 # POLY_AREA_RANGE = (2400, 3750) # In NM^2
 POLY_AREA_RANGE = (25/6, 100/6) # NM^2, factor of 4 roughly for km conversion -> BASE TEST unc cr
 # POLY_AREA_RANGE = (1, 1.5) # NM^2, factor of 4 roughly for km conversion -> 30m rpz
+# POLY_AREA_RANGE = (0.5, 2) # NM^2, factor of 4 roughly for km conversion -> 30m rpz
 CENTER = np.array([51.990426702297746, 4.376124857109851]) # TU Delft AE Faculty coordinates
 ALTITUDE = 3.28 # In FL
 
@@ -47,6 +48,8 @@ FL2M = 30.48
 
 INTRUSION_DISTANCE = 0.15 # NM
 # INTRUSION_DISTANCE = 0.2
+# INTRUSION_DISTANCE = 0.1
+# INTRUSION_DISTANCE = 50/1852 # 30 meter, for latest training
 
 # Model parameters
 ACTION_FREQUENCY = 5
@@ -56,7 +59,7 @@ INTRUSION_PENALTY = -1
 D_HEADING = 22.5 # deg
 D_VELOCITY = 5*1.94384449 # m/s2 to kts
 
-mvp_test = True
+mvp_test = False
 
 class SectorCR_sas(ParallelEnv):
     
@@ -94,6 +97,8 @@ class SectorCR_sas(ParallelEnv):
         self.num_episodes = 0
         self.total_intrusions = 0
         self.average_drift = np.array([])
+        self.average_spd_input = np.array([])
+        self.average_hdg_input = np.array([])
 
         self.window = None
         self.clock = None
@@ -110,6 +115,8 @@ class SectorCR_sas(ParallelEnv):
         self.total_reward = 0
         self.total_intrusions = 0
         self.average_drift = np.array([])
+        self.average_spd_input = np.array([])
+        self.average_hdg_input = np.array([])
 
         self._generate_polygon() # Create airspace polygon
         self._generate_waypoints() # Create waypoints for aircraft
@@ -288,6 +295,9 @@ class SectorCR_sas(ParallelEnv):
             action = actions[agent]
             dh = action[0] * D_HEADING
             dv = action[1] * D_VELOCITY
+            self.average_spd_input = np.append(self.average_spd_input, dv)
+            self.average_hdg_input = np.append(self.average_hdg_input, dh)
+            self.average_hdg_input = np.array([])
             heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(agent)] + dh)
             # speed_new = (bs.traf.cas[bs.traf.id2idx(agent)] + dv) * MpS2Kt
             speed_new_prov = (bs.traf.cas[bs.traf.id2idx(agent)] + dv) * MpS2Kt
@@ -439,7 +449,10 @@ class SectorCR_sas(ParallelEnv):
         return {
             a: {'total_reward': self.total_reward,
             'total_intrusions': self.total_intrusions,
-            'average_drift': self.average_drift.mean()}
+            'average_drift': self.average_drift.mean(),
+            'average_hdg_input': self.average_hdg_input.mean(),
+            'average_spd_input': self.average_spd_input.mean(),
+            }
             for a in self.agents
         }
 

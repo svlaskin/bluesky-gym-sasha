@@ -32,7 +32,7 @@ import bluesky_gym.envs.common.functions as fn
 
 # POLY_AREA_RANGE = (2400, 3750) # In NM^2
 POLY_AREA_RANGE = (25/6, 100/6) # NM^2, factor of 4 roughly for km conversion -> BASE TEST unc cr
-# POLY_AREA_RANGE = (1, 1.5) # NM^2, factor of 4 roughly for km conversion -> 30m rpz
+# POLY_AREA_RANGE = (2, 2) # NM^2, factor of 4 roughly for km conversion -> 30m rpz
 CENTER = np.array([51.990426702297746, 4.376124857109851]) # TU Delft AE Faculty coordinates
 ALTITUDE = 3.28 # In FL
 
@@ -46,8 +46,10 @@ MpS2Kt = 1.94384
 FL2M = 30.48
 
 INTRUSION_DISTANCE = 0.15 # NM
-# INTRUSION_DISTANCE = 30/1852
+# INTRUSION_DISTANCE = 50/1852 # 30 meter, for latest training
 # INTRUSION_DISTANCE = 0.2
+
+# INTRUSION_DISTANCE = 0.15 #latest attempt
 
 # Model parameters
 ACTION_FREQUENCY = 5
@@ -71,9 +73,11 @@ class SectorCR_sas_unc(ParallelEnv):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
         self.num_ac = n_agents
-
-        self.window_width = 512
-        self.window_height = 512
+        # print("at least its loading")
+        # self.window_width = 512
+        # self.window_height = 512
+        self.window_width = 1024
+        self.window_height = 1024
         self.window_size = (self.window_width, self.window_height)
 
         self.reset_counter = 0
@@ -84,6 +88,8 @@ class SectorCR_sas_unc(ParallelEnv):
 
         self.observation_spaces = {agent: gym.spaces.Box(low=-np.inf, high=np.inf, shape=(3+7*NUM_AC_STATE,), dtype=np.float64) for agent in self.agents}
         self.action_spaces = {agent: gym.spaces.Box(-1, 1, shape=(2,), dtype=np.float64) for agent in self.agents}
+        
+        self.trails = {agent: [] for agent in self.agents} # trails dict
 
         bs.init(mode='sim', detached=True)
         bs.scr = ScreenDummy()
@@ -95,6 +101,11 @@ class SectorCR_sas_unc(ParallelEnv):
         self.num_episodes = 0
         self.total_intrusions = 0
         self.average_drift = np.array([])
+        self.average_spd_input = np.array([])
+        self.average_hdg_input = np.array([])
+        self.los_ids = []
+        self.los_dists = np.array([])
+        self.los_qdrs = np.array([])
 
         self.window = None
         self.clock = None
@@ -108,15 +119,24 @@ class SectorCR_sas_unc(ParallelEnv):
         # if self.num_episodes > 1:
         #     self.reward_array = np.append(self.reward_array, self.total_reward)
         #     print(f'episode: {self.num_episodes}, avg rew: {self.reward_array[-100:].mean()}')
+
+        self.trails = {agent: [] for agent in self.agents}
+
         self.total_reward = 0
         self.total_intrusions = 0
         self.average_drift = np.array([])
+        self.average_hdg_input = np.array([])
+        self.average_spd_input = np.array([])
+        self.los_ids = []
+        self.los_dists = np.array([])
+        self.los_qdrs = np.array([])
 
         self._generate_polygon() # Create airspace polygon
         self._generate_waypoints() # Create waypoints for aircraft
         self._generate_ac()
 
-        observations = self._get_observation_noisy()
+        # observations = self._get_observation_noisy()
+        observations = self._get_observation()
         infos = self._get_info()
 
         if self.render_mode == "human":
@@ -145,6 +165,7 @@ class SectorCR_sas_unc(ParallelEnv):
         info = self._get_info()
 
         """
+        # print("stepped")
         self._do_action(actions)
         action_frequency = ACTION_FREQUENCY
         for _ in range(action_frequency):
@@ -307,6 +328,9 @@ class SectorCR_sas_unc(ParallelEnv):
             action = actions[agent]
             dh = action[0] * D_HEADING
             dv = action[1] * D_VELOCITY
+
+            self.average_spd_input = np.append(self.average_spd_input, dv)
+            self.average_hdg_input = np.append(self.average_hdg_input, dh)
             heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(agent)] + dh)
             speed_new_prov = (bs.traf.cas[bs.traf.id2idx(agent)] + dv) * MpS2Kt
             speed_new = speed_new_prov if speed_new_prov>10 else 10
@@ -401,7 +425,11 @@ class SectorCR_sas_unc(ParallelEnv):
             bs.traf.cre(agent, actype=AC_TYPE, aclat=init_pos_agent[0], aclon=init_pos_agent[1], achdg=hdg_agent, acspd=AC_SPD, acalt=ALTITUDE)
         if mvp_test:
                 bs.stack.stack("asas on")
+                # bs.stack.stack("plugin load statebasednoisy")
+                # bs.stack.stack("asas statebasednoisy")
                 bs.stack.stack("reso mvp")
+                # bs.stack.stack("plugin load m22logger")
+                # bs.stack.stack("startlogs")
 
     def _check_drift(self, ac_idx):
         ac_hdg = bs.traf.hdg[ac_idx]
@@ -421,12 +449,14 @@ class SectorCR_sas_unc(ParallelEnv):
             int_idx = i
             if i == ac_idx:
                 continue
-            _, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx]) #Leick, Rapoport & Tatarnikov, GPS Satellite Surveying, sqrt(2) is factor for rel position
-            if mvp_test:
-                int_dis = int_dis + np.random.normal(0, np.sqrt(2)*self.noise_level, 1)[0]/1852
+            int_qdr, int_dis = bs.tools.geo.kwikqdrdist(bs.traf.lat[ac_idx], bs.traf.lon[ac_idx], bs.traf.lat[int_idx], bs.traf.lon[int_idx]) #Leick, Rapoport & Tatarnikov, GPS Satellite Surveying, sqrt(2) is factor for rel position
             if int_dis < INTRUSION_DISTANCE:
                 self.total_intrusions += 1
                 reward += INTRUSION_PENALTY
+                self.los_ids.append((ac_idx, int_idx))
+                self.los_dists = np.append(self.los_dists, int_dis)
+                rel_hdg = bs.traf.hdg[ac_idx] - bs.traf.hdg[int_idx]
+                self.los_qdrs = np.append(self.los_qdrs, rel_hdg)        
         
         return reward
 
@@ -458,7 +488,13 @@ class SectorCR_sas_unc(ParallelEnv):
         return {
             a: {'total_reward': self.total_reward,
             'total_intrusions': self.total_intrusions,
-            'average_drift': self.average_drift.mean()}
+            'average_drift': self.average_drift.mean(),
+            'average_hdg_input': self.average_hdg_input.mean(),
+            'average_spd_input': self.average_spd_input.mean(),
+            'losids': self.los_ids,
+            'losdists': self.los_dists,
+            'losqdrs': self.los_qdrs
+            }
             for a in self.agents
         }
 
@@ -486,7 +522,7 @@ class SectorCR_sas_unc(ParallelEnv):
         # Draw ownship
         for agent in self.agents:
             ac_idx = bs.traf.id2idx(agent)
-            ac_length = 2
+            ac_length = 4
             ac_hdg = bs.traf.hdg[ac_idx]
             heading_end_x = np.cos(np.deg2rad(ac_hdg)) * ac_length
             heading_end_y = np.sin(np.deg2rad(ac_hdg)) * ac_length
@@ -506,11 +542,19 @@ class SectorCR_sas_unc(ParallelEnv):
             x_pos = (self.window_width/2)+(np.cos(np.deg2rad(ac_qdr))*(ac_dis * NM2KM)*px_per_km)
             y_pos = (self.window_height/2)-(np.sin(np.deg2rad(ac_qdr))*(ac_dis * NM2KM)*px_per_km)
 
+            self.trails[agent].append((x_pos, y_pos))
+            # if len(self.trails[agent]) > 50:
+            #     self.trails[agent].pop(0)
+
+            # trails
+            if len(self.trails[agent]) > 1:
+                pygame.draw.lines(canvas, (50, 244, 0), False, self.trails[agent], width=1)
+
             pygame.draw.line(canvas,
                 (0,0,0),
                 (x_pos,y_pos),
                 ((x_pos)+heading_end_x,(y_pos)-heading_end_y),
-                width = 1
+                width = 2
             )
 
             # Draw heading line
@@ -636,13 +680,13 @@ class SectorCR_ATT_sas_unc(SectorCR_sas_unc):
         return observations
     def _get_observation_noisy(self):
         obs = []
-
         for agent in self.agents:
             ac_idx = bs.traf.id2idx(agent)
             ac_hdg = bs.traf.hdg[ac_idx]
             # self.noise_level = 1.5 # m, std of noise
-            self.noise_level = 3.5 # std of noise
-            # self.noise_level = 20 # std of noise
+            # self.noise_level = 2.5
+            # self.noise_level = 5 # std of noise
+            self.noise_level = 35 # std of noise
             
             # Get and decompose agent aircaft drift
             wpts = fn.nm_to_latlong(CENTER, self.wpts[ac_idx])

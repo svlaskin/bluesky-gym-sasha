@@ -1,3 +1,6 @@
 from bluesky_zoo.sector_cr.sector_cr import SectorCR, SectorCR_ATT
 from bluesky_zoo.sector_cr.sector_cr_sas import SectorCR_sas, SectorCR_ATT_sas
 from bluesky_zoo.sector_cr.sector_cr_sas_unc import SectorCR_sas_unc, SectorCR_ATT_sas_unc
+from bluesky_zoo.sector_cr.sector_cr_sas_unc_1sdt import SectorCR_sas_unc_quick, SectorCR_ATT_sas_unc_quick
+from bluesky_zoo.sector_cr.sector_cr_sas_1sdt import SectorCR_sas_quick, SectorCR_ATT_sas_quick
+from bluesky_zoo.sector_cr.sector_cr_sas_uncooperative import SectorCR_sas_uncoop, SectorCR_ATT_sas_uncoop

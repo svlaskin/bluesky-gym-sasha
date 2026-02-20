@@ -10,6 +10,7 @@ import matplotlib
 matplotlib.use('agg')
 
 import numpy as np
+import csv
 import torch
 
 """
@@ -25,7 +26,10 @@ def plot_figures(self, model):
         plt.close(fig)
 
 # def save_models(model, weights_folder = 'sac_cr_att/weights'):
-def save_models(model, weights_folder = '/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_unc_cr_att_noise_posonly_20_3.5n_30rpz'):
+# def save_models(model, weights_folder = 'sac_unc_cr_att_noise_posonly_20_3.5n_5dt_0.15rpz'):
+# def save_models(model, weights_folder = 'sac_unc_cr_att_noise_posonly_20_3.5n_1dt_30m_rpz'):
+# def save_models(model, weights_folder = 'sac_unc_cr_att_noise_posonly_20_40n_0.15rpz'):
+def save_models(model, weights_folder = '/Users/sasha/Documents/Code/pettingzoo_multiuse/sac_unc_cr_att_noise_posonly_20_40n_0.15rpz'): # attempt at a smaller RPZ and higher dt run 
     torch.save(model.actor.state_dict(), weights_folder+"/actor.pt")
     torch.save(model.critic_q.state_dict(), weights_folder+"/qf.pt")
     torch.save(model.critic_q_target.state_dict(), weights_folder+"/qf_target.pt")
@@ -38,7 +42,7 @@ action_dim = env.action_space('DR001').shape[0]
 observation_dim = env.observation_space('DR001').shape[0]
 n_agents = env.num_ac 
 
-num_episodes = 5_000 # 100_000 
+num_episodes = 10_000 # 100_000 
 train_steps = 500 # first n transitions used for training, to control complexity of samples
 max_episode_length = 150 # max was 2500
 
@@ -84,6 +88,12 @@ rew_array = np.array(list(rewards.values()))
 done = list(dones.values())[0]
 
 # model.store_transition(obs_array,act_array,obs_array_n,rew_array,done)
+csv_file = "metrics_unc_bignoise.csv"
+
+# write header once
+with open(csv_file, "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["episode", "total_reward", "total_intrusions", "average_drift"])
 
 total_rew = np.array([])
 
@@ -116,6 +126,11 @@ for episode in range(num_episodes):
         steps += 1
 
     total_rew = np.append(total_rew,rew)
+    total_int = infos['DR001']['total_intrusions']
+    average_drift = infos['DR001']['average_drift']
+    with open(csv_file, "a", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([episode, total_rew, total_int, average_drift])
     if episode % 10 == 0:
         print(f'episode: {episode}, avg rew: {total_rew[-100:].mean()}')
         save_models(model)

@@ -10,29 +10,60 @@ from sac_cr_att.critic_q import MultiHeadAdditiveCriticQv3Basic
 from sac_cr_att.SAC import SAC
 from sac_cr_att.replay_buffer import ReplayBuffer
 
+import logging
+logging.getLogger('bluesky').setLevel(logging.WARNING)
+
 """
 BIG FILE FOR UNCERTAINTY CR EVAL
 """
-
+type_env = 'noise'
 # Load environment with rendering
 need_render = False
-env_c = sector_cr_v0.SectorCR_ATT_sas(render_mode='human') if need_render else sector_cr_v0.SectorCR_ATT_sas(render_mode=None)
-env_unc = sector_cr_v0.SectorCR_ATT_sas_unc(render_mode='human') if need_render else sector_cr_v0.SectorCR_ATT_sas_unc(render_mode=None)
-agents = env_c.possible_agents
-obs_dim = env_c.observation_space(agents[0]).shape[0]
-action_dim = env_c.action_space(agents[0]).shape[0]
-# n_agents = env.num_ac
-n_agents = 30
-need_render = False
+
+if type_env == 'clean':
+    env_c = sector_cr_v0.SectorCR_ATT_sas(render_mode='human') if need_render else sector_cr_v0.SectorCR_ATT_sas(render_mode=None)
+    agents = env_c.possible_agents
+    obs_dim = env_c.observation_space(agents[0]).shape[0]
+    action_dim = env_c.action_space(agents[0]).shape[0]
+
+elif type_env == 'noise':
+    env_unc = sector_cr_v0.SectorCR_ATT_sas_unc(render_mode='human') if need_render else sector_cr_v0.SectorCR_ATT_sas_unc(render_mode=None)
+    agents = env_unc.possible_agents
+    obs_dim = env_unc.observation_space(agents[0]).shape[0]
+    action_dim = env_unc.action_space(agents[0]).shape[0]
+
+n_agents = 20
 
 # Logger here
-def log_episode(episode, tot_reward, tot_intrusions, tot_drift, filename="log.csv"):
+def log_episode(episode, tot_reward, tot_intrusions, tot_drift, hdg_in, spd_in, filename="log.csv"):
     file_exists = os.path.isfile(filename)
     with open(filename, mode="a", newline="") as file:
         writer = csv.writer(file)
         if not file_exists:  # write header only once
-            writer.writerow(["episode", "tot_reward", "tot_intrusions", "tot_drift"])
-        writer.writerow([episode, tot_reward, tot_intrusions, tot_drift])
+            writer.writerow(["episode", "tot_reward", "tot_intrusions", "tot_drift", "hdg_in", "spd_in"])
+        writer.writerow([episode, tot_reward, tot_intrusions, tot_drift, hdg_in, spd_in])
+
+def log_episode_los(episode, losids, losdists, losqdrs, filename="log.csv"):
+    file_exists = os.path.isfile(filename)
+    with open(filename, mode="a", newline="") as file:
+        writer = csv.writer(file)
+        if not file_exists:  # write header only once
+            writer.writerow(["episode", "los_id", "los_dist", "los_qdr"])
+        # do some filtering here - take only the unique instances such that the min distance is logged
+        # Dictionary to hold best result per unique pair
+        unique_pairs = {}
+
+        for (id1, id2), dist, angle in zip(losids, losdists, losqdrs):
+            # Normalize order so (A,B) == (B,A)
+            key = tuple(sorted((id1, id2)))
+            
+            # Keep if first occurrence or smaller distance
+            if key not in unique_pairs or dist < unique_pairs[key][1]:
+                unique_pairs[key] = ((id1, id2), dist, angle)
+
+        # Convert back to lists if needed
+        losids, losdists, losqdrs = zip(*unique_pairs.values())
+        writer.writerow([episode, losids, losdists, losqdrs])
 
 # Build model
 actor = MultiHeadAdditiveActorBasic(q_dim=3, kv_dim=7, out_dim=action_dim, num_heads=3)
@@ -41,7 +72,8 @@ critic_q_target = MultiHeadAdditiveCriticQv3Basic(q_dim=5, kv_dim=7, num_heads=3
 
 # weights_folder = "/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_cr_att_sas_vlim_20" # for merge
 weights_folder_clean = "/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_unc_cr_att_clean_posonly_20" # trained on ideal
-weights_folder_noise = "/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_unc_cr_att_noise_posonly_20" # trained on noise
+# weights_folder_noise = "/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_unc_cr_att_noise_posonly_20" # trained on noise
+weights_folder_noise = "/Users/sasha/Documents/Code/pettingzoo_multiuse/sac_unc_cr_att_noise_posonly_20_40n_0.15rpz"
 # actor.load_state_dict(torch.load(f"{weights_folder}/actor.pt"))
 # critic_q.load_state_dict(torch.load(f"{weights_folder}/qf.pt"))
 # critic_q_target.load_state_dict(torch.load(f"{weights_folder}/qf_target.pt"))
@@ -50,18 +82,26 @@ buffer = ReplayBuffer(obs_dim=obs_dim, action_dim=action_dim, n_agents=n_agents,
 model = SAC(action_dim=action_dim, buffer=buffer, actor=actor, critic_q=critic_q, critic_q_target=critic_q_target, gamma=0.90)
 
 # all combinations possible, with structure [folder, env, name]
-# run_pars = [[weights_folder_clean, env_c, 'cc'], [weights_folder_clean, env_unc, 'cu'], [weights_folder_noise, env_c, 'uc'], [weights_folder_noise, env_unc, 'uu']]
-# run_pars = [[weights_folder_noise, env_unc, 'uu']]
-
 run_pars = [
-            [weights_folder_noise, env_c, 'mvpc15'], 
-            [weights_folder_noise, env_unc, 'mvpu15']]
+    # [weights_folder_clean, env_unc, 'cu'],
+    #          [weights_folder_noise, env_unc, 'uu'],
+             [weights_folder_clean, env_unc, 'cc'],
+             [weights_folder_noise, env_unc, 'uc']
+             ]
+# run_pars = [[weights_folder_noise, env_unc, 'uu']] # only uncertain
+
+# run_pars = [
+            # [weights_folder_noise, env_c, 'mvpc15'], 
+            # [weights_folder_noise, env_unc, 'mvpu15']
+# ]
 run_epis = 5000 # number of episodes to run per combo
 
 
 for run_par in run_pars:
     # print(run_par)
-    log_name = f"logs_unc_cr_3.5std/log_{run_par[2]}.csv"
+    # log_name = f"logs_unc_cr_3.5std/log_{run_par[2]}.csv"
+    log_name = f"logs_unc_cr_35std_trained_qdr/log_{run_par[2]}.csv"
+    log_name_los = f"logs_unc_cr_35std_trained_qdr/loslog_{run_par[2]}.csv"
     weights_folder = run_par[0]
     env = run_par[1]
     name_save = run_par[2]
@@ -74,6 +114,8 @@ for run_par in run_pars:
     rewards = []
     intrusions = []
     drift = []
+    hdg_in = []
+    v_in = []
 
     # Run episodes
     for ep in range(run_epis):
@@ -102,10 +144,21 @@ for run_par in run_pars:
             step += 1
             if step >150:
                 done=True
+        # regular logger
         total_int = infos['DR001']['total_intrusions']
         total_drift = infos['DR001']['average_drift']
         total_rew = infos['DR001']['total_reward']
-        log_episode(ep, total_rew, total_int, total_drift, filename=log_name)
+        avg_hdg_in = infos['DR001']['average_hdg_input']
+        avg_spd_in = infos['DR001']['average_spd_input']
+        log_episode(ep, total_rew, total_int, total_drift, avg_hdg_in, avg_spd_in, filename=log_name)
+        # LoS log
+        ids_lospairs = infos['DR001']['losids']
+        qdrs_lospairs = infos['DR001']['losqdrs']
+        dists_lospairs = infos['DR001']['losdists']
+        if ids_lospairs:
+            # print(ids_lospairs)
+            # print(f"{ids_lospairs} is apparently not equal to []")
+            log_episode_los(ep, ids_lospairs, dists_lospairs, qdrs_lospairs, filename=log_name_los)
 
         print(f"Episode {ep+1}: Reward = {total_rew:.2f}, Steps = {step}")
         print(f"total int is: {infos['DR001']['total_intrusions']}")

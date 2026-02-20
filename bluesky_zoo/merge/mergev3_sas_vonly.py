@@ -77,7 +77,7 @@ class MergeEnv_sas_vonly(ParallelEnv):
         self.steps = 0
 
         self.observation_spaces = {agent: gym.spaces.Box(low=-np.inf, high=np.inf, shape=(3+7*NUM_AC_STATE,), dtype=np.float64) for agent in self.agents}
-        self.action_spaces = {agent: gym.spaces.Box(-1, 1, shape=(2,), dtype=np.float64) for agent in self.agents}
+        self.action_spaces = {agent: gym.spaces.Box(-1, 1, shape=(2,), dtype=np.float64) for agent in self.agents} # only speed
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -355,12 +355,12 @@ class MergeEnv_sas_vonly(ParallelEnv):
             action = actions[agent]
             dh = action[0] * D_HEADING
             dv = action[1] * D_VELOCITY
-            heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(agent)] + dh)
+            # heading_new = fn.bound_angle_positive_negative_180(bs.traf.hdg[bs.traf.id2idx(agent)] + dh)
             speed_new_c = (bs.traf.cas[bs.traf.id2idx(agent)] + dv) * MpS2Kt 
             speed_new = speed_new_c if speed_new_c>=0 else 0 # bound above negative speed
 
             # print(speed_new)
-            bs.stack.stack(f"HDG {agent} {heading_new}")
+            # bs.stack.stack(f"HDG {agent} {heading_new}")
             bs.stack.stack(f"SPD {agent} {speed_new}")
 
     def _render_frame(self):
@@ -497,7 +497,7 @@ class MergeEnv_sas_vonly(ParallelEnv):
     def close(self):
         pass
 
-class MergeEnv_ATT_sas(MergeEnv_sas):
+class MergeEnv_ATT_sas_vonly(MergeEnv_sas_vonly):
 
     def __init__(self, render_mode=None, n_agents=20):
         super().__init__(render_mode, n_agents)

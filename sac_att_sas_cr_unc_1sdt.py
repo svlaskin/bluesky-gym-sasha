@@ -1,0 +1,151 @@
+from bluesky_zoo import sector_cr_v0, merge_v0
+
+from sac_cr_att.actor import MultiHeadAdditiveActorBasic
+from sac_cr_att.critic_q  import MultiHeadAdditiveCriticQv3Basic
+from sac_cr_att.replay_buffer import ReplayBuffer
+from sac_cr_att.SAC import SAC
+
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('agg')
+
+import numpy as np
+import csv
+import torch
+
+"""
+unc cr runs here, with uncertainty
+"""
+
+def plot_figures(self, model):
+        fig, ax = plt.subplots()
+        ax.plot(model.qf1_lossarr, label='qf1')
+        ax.plot(model.qf2_lossarr, label='qf2')
+        ax.set_yscale('log')
+        fig.savefig(self.output_folder+'/qloss.png')
+        plt.close(fig)
+
+# def save_models(model, weights_folder = 'sac_cr_att/weights'):
+# def save_models(model, weights_folder = 'sac_unc_cr_att_noise_posonly_20_3.5n_5dt_0.15rpz'):
+# def save_models(model, weights_folder = 'sac_unc_cr_att_noise_posonly_20_3.5n_1dt_30m_rpz'):
+# def save_models(model, weights_folder = 'sac_unc_cr_att_noise_posonly_20_40n_0.15rpz'):
+def save_models(model, weights_folder = 'sac_unc_cr_att_noise_posonly_20_5n_dt1_30m_rpz_2'): # attempt at a smaller RPZ and higher dt run 
+    torch.save(model.actor.state_dict(), weights_folder+"/actor.pt")
+    torch.save(model.critic_q.state_dict(), weights_folder+"/qf.pt")
+    torch.save(model.critic_q_target.state_dict(), weights_folder+"/qf_target.pt")
+
+
+env = sector_cr_v0.SectorCR_ATT_sas_unc_quick(render_mode=None)
+# env = merge_v0.MergeEnv_ATT_sas(render_mode=None)
+
+action_dim = env.action_space('DR001').shape[0] 
+observation_dim = env.observation_space('DR001').shape[0]
+n_agents = env.num_ac 
+# print("made it past setup")
+
+num_episodes = 10_000 # 100_000 
+train_steps = 500 # first n transitions used for training, to control complexity of samples
+max_episode_length = 150 # max was 2500
+
+
+Buffer = ReplayBuffer(obs_dim = observation_dim,
+                      action_dim = action_dim,
+                      n_agents = n_agents,
+                      size = int(4e6),
+                      batch_size = 1024)
+
+Actor = MultiHeadAdditiveActorBasic(q_dim = 3,
+                                    kv_dim = 7,
+                                    out_dim = action_dim,
+                                    num_heads = 3)
+
+Critic_q = MultiHeadAdditiveCriticQv3Basic(q_dim = 5,
+                                        kv_dim = 7,
+                                        num_heads = 3)
+
+Critic_q_t = MultiHeadAdditiveCriticQv3Basic(q_dim = 5,
+                                        kv_dim = 7,
+                                        num_heads = 3)
+# print("ok up to model")
+model = SAC(action_dim=action_dim,
+            buffer = Buffer,
+            actor = Actor,
+            critic_q = Critic_q,
+            critic_q_target= Critic_q_t,
+            gamma = 0.90)
+# print('all the way to reset')
+observations, infos = env.reset()
+# print("reset is not the culprit")
+agents = list(observations.keys())
+
+obs_array = np.array(list(observations.values()))
+act_array = model.get_action(obs_array)
+
+actions = {agent: action for agent, action in zip(agents,act_array)}
+
+observations, rewards, dones, truncates, infos = env.step(actions)
+
+obs_array_n = np.array(list(observations.values()))
+rew_array = np.array(list(rewards.values()))
+done = list(dones.values())[0]
+
+# print("made it to csv")
+
+# model.store_transition(obs_array,act_array,obs_array_n,rew_array,done)
+csv_file = "metrics_unc_bignoise_1s.csv"
+
+# write header once
+with open(csv_file, "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["episode", "total_reward", "total_intrusions", "average_drift"])
+
+total_rew = np.array([])
+
+# print("up to episode loop")
+
+for episode in range(num_episodes):
+    observations, infos = env.reset()
+    done = False
+    rew = 0
+    steps = 0
+    while not done:
+        # print(f"running {episode} on step {steps}")
+        obs_array = np.array(list(observations.values()))
+        act_array = model.get_action(obs_array)
+
+        actions = {agent: action for agent, action in zip(agents,act_array)}
+
+        observations, rewards, dones, truncates, infos = env.step(actions)
+
+        obs_array_n = np.array(list(observations.values()))
+        rew_array = np.array(list(rewards.values()))
+        rew += rew_array.mean()
+
+        if list(dones.values())[0] or list(truncates.values())[0]:
+            done = True
+
+        if steps < train_steps:
+            model.store_transition(obs_array,act_array,obs_array_n,rew_array,False)
+        
+        if steps > max_episode_length:
+             done = True
+
+        steps += 1
+
+    total_rew = np.append(total_rew,rew)
+    total_int = infos['DR001']['total_intrusions']
+    average_drift = infos['DR001']['average_drift']
+    with open(csv_file, "a", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([episode, total_rew, total_int, average_drift])
+    if episode % 10 == 0:
+        print(f'episode: {episode}, avg rew: {total_rew[-100:].mean()}')
+        save_models(model)
+
+
+# import code
+# code.interact(local=locals())
+
+# create the numpy arrays:
+# obs_array = np.array(list(observations.values()))
+# would be nice to have this in a wrapper and just create an array environment
