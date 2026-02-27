@@ -66,7 +66,7 @@ class SectorCR_sas_uncoop(ParallelEnv):
         "render_fps": 120
     }
 
-    def __init__(self, render_mode=None, n_agents=20, n_uncoop=2):
+    def __init__(self, render_mode=None, n_agents=20, n_uncoop=10):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
         self.num_ac = n_agents

@@ -11,8 +11,7 @@ from sac_cr_att.SAC import SAC
 from sac_cr_att.replay_buffer import ReplayBuffer
 
 """
-BIG FILE FOR UNCERTAINTY CR EVAL - for visualizing policy
-TODO: add MVP
+Big file for evaluating uncooperative-trained policies
 """
 
 # Load environment with rendering
@@ -43,9 +42,9 @@ critic_q_target = MultiHeadAdditiveCriticQv3Basic(q_dim=5, kv_dim=7, num_heads=3
 # weights_folder = "/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_cr_att_sas_vlim_20" # for merge
 # weights_folder_clean = "/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_unc_cr_att_clean_posonly_20_25n_3.5n_30rpz" # trained on ideal
 # weights_folder_noise = '/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_unc_cr_att_noise_posonly_20_3.5n_30rpz' # trained on noise
-weights_folder_coop = "/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_unc_cr_att_clean_posonly_20" # trained on noise
+weights_folder_coop = "/Users/sasha/Documents/Code/pettingzoo_multiuse/sac_unc_cr_att_clean_posonly_20" # trained on noise
 # weights_folder_clean = "/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_unc_cr_att_clean_posonly_20"
-weights_folder_uncoop = "/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_unc_cr_att_uncooperative" #uncooperative 
+weights_folder_uncoop = "/Users/sasha/Documents/Code/pettingzoo_multiuse/sac_unc_cr_att_uncooperative_{}" #uncooperative 
 # actor.load_state_dict(torch.load(f"{weights_folder}/actor.pt"))
 # critic_q.load_state_dict(torch.load(f"{weights_folder}/qf.pt"))
 # critic_q_target.load_state_dict(torch.load(f"{weights_folder}/qf_target.pt"))
@@ -54,18 +53,26 @@ buffer = ReplayBuffer(obs_dim=obs_dim, action_dim=action_dim, n_agents=n_agents,
 model = SAC(action_dim=action_dim, buffer=buffer, actor=actor, critic_q=critic_q, critic_q_target=critic_q_target, gamma=0.90)
 
 # all combinations possible, with structure [folder, env, name]
-run_pars = [
-    # [weights_folder_uncoop, env_uncoop, 'uc_uc'], 
-            [weights_folder_coop, env_coop, "c_c"],
-            [weights_folder_coop, env_uncoop, 'c_uc'], 
-            [weights_folder_uncoop, env_coop, "uc_c"]]
+
+n_agents_range = [1,2,3,4,5] # 4 is still running 
+run_pars = [] # init empty list, and loop through numbers
+for n_agents in n_agents_range:
+    run_pars.append([weights_folder_uncoop.format(n_agents), env_uncoop, f"uc_uc_{n_agents}"]) # need to change this to n_uncoop to accomodate for various numbers in testing
+    run_pars.append([weights_folder_uncoop.format(n_agents), env_coop, f"uc_c_{n_agents}"])
+    print(f"NAGENTS IS {weights_folder_uncoop.format(n_agents)}")
+
+# /Users/sasha/Documents/Code/pettingzoo_multiuse/sac_unc_cr_att_uncooperative_1
+# run_pars = [
+#     [weights_folder_uncoop, env_uncoop, 'uc_uc'], 
+#             # [weights_folder_coop, env_coop, "c_c"],
+#             # [weights_folder_coop, env_uncoop, 'c_uc'], 
+#             [weights_folder_uncoop, env_coop, "uc_c"]]
 
 run_epis = 5000 # number of episodes to run per combo
 
-
 for run_par in run_pars:
     # print(run_par)
-    log_name = f"/Users/sasha/Documents/Code/pettingzoo_multiuse/logs_uncoop/log_{run_par[2]}.csv"
+    log_name = f"/Users/sasha/Documents/Code/pettingzoo_multiuse/logs_uncoop_varied_5k/log_{run_par[2]}.csv"
     weights_folder = run_par[0]
     env = run_par[1]
     name_save = run_par[2]

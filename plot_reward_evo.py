@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from pypalettes import load_cmap, load_palette
+
 
 # --- Configuration ---
 ave_window = 300
@@ -170,8 +172,15 @@ def plot_learning_curves_separate(files, labels, colors, window=300, output_pref
 plot_learning_curves_separate(
     files=[
         "/Users/sasha/Documents/Code/pettingzoo_multiuse/metrics_cle.csv",
-        "/Users/sasha/Documents/Code/pettingzoo_multiuse/metrics_uncoop.csv"
+        "/Users/sasha/Documents/Code/pettingzoo_multiuse/metrics_uncoop_1.csv",
+        "/Users/sasha/Documents/Code/pettingzoo_multiuse/metrics_uncoop_2.csv",
+        "/Users/sasha/Documents/Code/pettingzoo_multiuse/metrics_uncoop_3.csv",
+        "/Users/sasha/Documents/Code/pettingzoo_multiuse/metrics_uncoop_4.csv",
+        "/Users/sasha/Documents/Code/pettingzoo_multiuse/metrics_unc.csv",
+        "/Users/sasha/Documents/Code/pettingzoo_multiuse/metrics_uncoop_10.csv"
+
     ],
-    labels=["Fully Cooperative", "25% Unresponsive"],
-    colors=["#E69F00", "#0072B2"]
+    labels=["Fully Cooperative", "5% Unresponsive", "10% Unresponsive", "15% Unresponsive", "20% Unresponsive", "25% Unresponsive", "50% Unresponsive"],
+    # colors=["#E69F00", "#0072B2"]
+    colors = load_palette("Rembrandt")
 )

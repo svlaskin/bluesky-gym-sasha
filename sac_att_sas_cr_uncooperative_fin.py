@@ -19,8 +19,10 @@ import csv
 import torch
 
 """
-unc cr runs here, for ideal case
+Uncooperative CR training script
 """
+
+n_uncoop = 10 # also change in environment
 
 def plot_figures(self, model):
         fig, ax = plt.subplots()
@@ -32,7 +34,8 @@ def plot_figures(self, model):
 
 # def save_models(model, weights_folder = 'sac_cr_att/weights'):
 # def save_models(model, weights_folder = 'sac_unc_cr_att_clean_posonly_20_3.5n_5dt_0.15rpz'):
-def save_models(model, weights_folder = '/Users/sasha/Documents/Code/pettingzoo_multiuse/sac_unc_cr_att_uncooperative_2'):
+wfolder = f'/Users/sasha/Documents/Code/pettingzoo_multiuse/sac_unc_cr_att_uncooperative_{n_uncoop}'
+def save_models(model, weights_folder = '/Users/sasha/Documents/Code/pettingzoo_multiuse/sac_unc_cr_att_uncooperative_10'):
     torch.save(model.actor.state_dict(), weights_folder+"/actor.pt")
     torch.save(model.critic_q.state_dict(), weights_folder+"/qf.pt")
     torch.save(model.critic_q_target.state_dict(), weights_folder+"/qf_target.pt")
@@ -90,7 +93,7 @@ rew_array = np.array(list(rewards.values()))
 done = list(dones.values())[0]
 
 # model.store_transition(obs_array,act_array,obs_array_n,rew_array,done)
-csv_file = "metrics_uncoop_2.csv"
+csv_file = f"metrics_uncoop_{n_uncoop}.csv"
 
 # write header once
 with open(csv_file, "w", newline="") as f:

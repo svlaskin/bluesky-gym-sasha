@@ -18,7 +18,7 @@ TODO: add MVP
 # Load environment with rendering
 need_render = True
 # env_c = sector_cr_v0.SectorCR_ATT_sas_quick(render_mode='human') if need_render else sector_cr_v0.SectorCR_ATT_sas(render_mode=None)
-env_unc = sector_cr_v0.SectorCR_ATT_sas_unc(render_mode='human') if need_render else sector_cr_v0.SectorCR_ATT_sas_unc(render_mode=None)
+env_unc = sector_cr_v0.SectorCR_ATT_sas_uncoop(render_mode='human') if need_render else sector_cr_v0.SectorCR_ATT_sas_uncoop(render_mode=None)
 agents = env_unc.possible_agents
 obs_dim = env_unc.observation_space(agents[0]).shape[0]
 action_dim = env_unc.action_space(agents[0]).shape[0]
@@ -44,8 +44,9 @@ critic_q_target = MultiHeadAdditiveCriticQv3Basic(q_dim=5, kv_dim=7, num_heads=3
 # weights_folder_clean = "/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_unc_cr_att_clean_posonly_20_25n_3.5n_30rpz" # trained on ideal
 # weights_folder_noise = '/Users/sasha/Documents/Code/multiagent_merge/bluesky-gym/sac_unc_cr_att_noise_posonly_20_3.5n_1dt_30m_rpz' # trained on noise
 # weights_folder_noise = 'sac_unc_cr_att_clean_posonly_20_3.5n_5dt_0.15rpz' # trained on noise
-weights_folder_noise = 'sac_unc_cr_att_noise_posonly_20_40n_0.15rpz' # trained on noise
-weights_folder_noise = "sac_unc_cr_att_noise_posonly_20_5n_dt1_30m_rpz"
+# weights_folder_noise = 'sac_unc_cr_att_noise_posonly_20_40n_0.15rpz' # trained on noise
+# weights_folder_noise = "sac_unc_cr_att_noise_posonly_20_5n_dt1_30m_rpz"
+weights_folder_noise = '/Users/sasha/Documents/Code/pettingzoo_multiuse/sac_unc_cr_att_uncooperative_5'
 # weights_folder_noise = 'sac_unc_cr_att_noise_posonly_20_3.5n_0.1nm_rpz' # trained on noise
 # actor.load_state_dict(torch.load(f"{weights_folder}/actor.pt"))
 # critic_q.load_state_dict(torch.load(f"{weights_folder}/qf.pt"))
