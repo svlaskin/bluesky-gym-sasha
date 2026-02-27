@@ -6,4 +6,4 @@ images/
 logs/
 models/
 dist/
-sac/weights/
+sac/weights_vari/

@@ -35,7 +35,7 @@ def plot_figures(self, model):
 # def save_models(model, weights_folder = 'sac_cr_att/weights'):
 # def save_models(model, weights_folder = 'sac_unc_cr_att_clean_posonly_20_3.5n_5dt_0.15rpz'):
 wfolder = f'/Users/sasha/Documents/Code/pettingzoo_multiuse/sac_unc_cr_att_uncooperative_{n_uncoop}'
-def save_models(model, weights_folder = '/Users/sasha/Documents/Code/pettingzoo_multiuse/sac_unc_cr_att_uncooperative_10'):
+def save_models(model, weights_folder = '/Users/sasha/Documents/Code/pettingzoo_multiuse/weights_vari/sac_unc_cr_att_uncooperative_u10'):
     torch.save(model.actor.state_dict(), weights_folder+"/actor.pt")
     torch.save(model.critic_q.state_dict(), weights_folder+"/qf.pt")
     torch.save(model.critic_q_target.state_dict(), weights_folder+"/qf_target.pt")
